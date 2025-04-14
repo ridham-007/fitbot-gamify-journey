@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Trainer from "./pages/Trainer";
 import Progress from "./pages/Progress";
 import Profile from "./pages/Profile";
+import Challenges from "./pages/Challenges";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/trainer" element={<Trainer />} />
             <Route path="/progress" element={<Progress />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/challenges" element={<Challenges />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
