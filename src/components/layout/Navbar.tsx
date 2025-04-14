@@ -1,0 +1,198 @@
+
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { 
+  Menu, 
+  X, 
+  User, 
+  Dumbbell, 
+  Brain, 
+  BarChart2, 
+  Trophy 
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+type NavbarProps = {
+  isLoggedIn?: boolean;
+};
+
+const Navbar = ({ isLoggedIn = false }: NavbarProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggleMenu = () => {
+    setIsOpen(!isOpen);
+  };
+
+  return (
+    <nav className="sticky top-0 z-50 bg-white dark:bg-fitDark-900 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/" className="flex-shrink-0 flex items-center">
+              <span className="text-2xl font-bold text-fitPurple-600">FitBot</span>
+            </Link>
+          </div>
+          
+          <div className="hidden md:flex items-center space-x-4">
+            {isLoggedIn ? (
+              <>
+                <Link to="/dashboard" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
+                  Dashboard
+                </Link>
+                <Link to="/trainer" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
+                  AI Trainer
+                </Link>
+                <Link to="/progress" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
+                  Progress
+                </Link>
+                <Link to="/profile" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
+                  Profile
+                </Link>
+                <Button variant="outline" size="sm" className="ml-4">
+                  <User className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link to="/features" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
+                  Features
+                </Link>
+                <Link to="/pricing" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
+                  Pricing
+                </Link>
+                <Link to="/about" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
+                  About
+                </Link>
+                <div className="flex items-center ml-4 space-x-2">
+                  <Link to="/login">
+                    <Button variant="outline" size="sm">Login</Button>
+                  </Link>
+                  <Link to="/signup">
+                    <Button size="sm">Sign Up</Button>
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
+          
+          <div className="flex items-center md:hidden">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 hover:bg-gray-100 dark:hover:bg-fitDark-800"
+              aria-controls="mobile-menu"
+              aria-expanded={isOpen}
+              onClick={toggleMenu}
+            >
+              <span className="sr-only">Open main menu</span>
+              {isOpen ? (
+                <X className="block h-6 w-6" aria-hidden="true" />
+              ) : (
+                <Menu className="block h-6 w-6" aria-hidden="true" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          "md:hidden transition-all duration-300 ease-in-out overflow-hidden",
+          isOpen ? "max-h-96" : "max-h-0"
+        )}
+        id="mobile-menu"
+      >
+        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+          {isLoggedIn ? (
+            <>
+              <Link 
+                to="/dashboard" 
+                className="flex items-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-fitDark-800 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-base font-medium"
+                onClick={() => setIsOpen(false)}
+              >
+                <Dumbbell className="mr-2 h-5 w-5" />
+                Dashboard
+              </Link>
+              <Link 
+                to="/trainer" 
+                className="flex items-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-fitDark-800 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-base font-medium"
+                onClick={() => setIsOpen(false)}
+              >
+                <Brain className="mr-2 h-5 w-5" />
+                AI Trainer
+              </Link>
+              <Link 
+                to="/progress" 
+                className="flex items-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-fitDark-800 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-base font-medium"
+                onClick={() => setIsOpen(false)}
+              >
+                <BarChart2 className="mr-2 h-5 w-5" />
+                Progress
+              </Link>
+              <Link 
+                to="/profile" 
+                className="flex items-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-fitDark-800 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-base font-medium"
+                onClick={() => setIsOpen(false)}
+              >
+                <User className="mr-2 h-5 w-5" />
+                Profile
+              </Link>
+              <Link 
+                to="/achievements" 
+                className="flex items-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-fitDark-800 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-base font-medium"
+                onClick={() => setIsOpen(false)}
+              >
+                <Trophy className="mr-2 h-5 w-5" />
+                Achievements
+              </Link>
+              <div className="pt-4">
+                <Button className="w-full" variant="outline">
+                  Logout
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Link 
+                to="/features" 
+                className="block text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-fitDark-800 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-base font-medium"
+                onClick={() => setIsOpen(false)}
+              >
+                Features
+              </Link>
+              <Link 
+                to="/pricing" 
+                className="block text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-fitDark-800 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-base font-medium"
+                onClick={() => setIsOpen(false)}
+              >
+                Pricing
+              </Link>
+              <Link 
+                to="/about" 
+                className="block text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-fitDark-800 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-base font-medium"
+                onClick={() => setIsOpen(false)}
+              >
+                About
+              </Link>
+              <div className="pt-4 flex flex-col space-y-2">
+                <Link to="/login" onClick={() => setIsOpen(false)}>
+                  <Button className="w-full" variant="outline">
+                    Login
+                  </Button>
+                </Link>
+                <Link to="/signup" onClick={() => setIsOpen(false)}>
+                  <Button className="w-full">
+                    Sign Up
+                  </Button>
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+export default Navbar;
