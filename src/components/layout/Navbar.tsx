@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -46,13 +45,12 @@ const Navbar = ({ isLoggedIn = false }: NavbarProps) => {
                 <Link to="/progress" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
                   Progress
                 </Link>
+                <Link to="/challenges" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
+                  Challenges
+                </Link>
                 <Link to="/profile" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
                   Profile
                 </Link>
-                <Button variant="outline" size="sm" className="ml-4">
-                  <User className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
               </>
             ) : (
               <>
@@ -65,15 +63,17 @@ const Navbar = ({ isLoggedIn = false }: NavbarProps) => {
                 <Link to="/about" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
                   About
                 </Link>
-                <div className="flex items-center ml-4 space-x-2">
-                  <Link to="/login">
-                    <Button variant="outline" size="sm">Login</Button>
-                  </Link>
-                  <Link to="/signup">
-                    <Button size="sm">Sign Up</Button>
-                  </Link>
-                </div>
               </>
+            )}
+            {!isLoggedIn && (
+              <div className="flex items-center ml-4 space-x-2">
+                <Link to="/login">
+                  <Button variant="outline" size="sm">Login</Button>
+                </Link>
+                <Link to="/signup">
+                  <Button size="sm">Sign Up</Button>
+                </Link>
+              </div>
             )}
           </div>
           
