@@ -1,9 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import { useUser } from '@/contexts/UserContext';
@@ -29,16 +28,20 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { login, isLoggedIn } = useUser();
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Get the return path from location state, default to dashboard
+  const from = (location.state as { from?: string })?.from || '/dashboard';
 
   // Redirect if already logged in
   useEffect(() => {
     if (isLoggedIn) {
-      navigate('/dashboard');
+      navigate(from, { replace: true });
     }
-  }, [isLoggedIn, navigate]);
+  }, [isLoggedIn, navigate, from]);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -59,7 +62,8 @@ const Login = () => {
         description: "Welcome back to FitBot.",
       });
       
-      navigate('/dashboard');
+      // Navigate to the return path after login
+      navigate(from, { replace: true });
     } catch (error: any) {
       toast({
         title: "Login failed",

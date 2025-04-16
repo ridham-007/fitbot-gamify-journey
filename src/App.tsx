@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { UserProvider } from "./contexts/UserContext";
+import PrivateRoute from "./components/auth/PrivateRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -12,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import Trainer from "./pages/Trainer";
 import Progress from "./pages/Progress";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import Challenges from "./pages/Challenges";
 import NotFound from "./pages/NotFound";
 import Features from "./pages/Features";
@@ -28,17 +30,23 @@ const App = () => (
       <UserProvider>
         <BrowserRouter>
           <Routes>
+            {/* Public routes */}
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/trainer" element={<Trainer />} />
-            <Route path="/progress" element={<Progress />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/challenges" element={<Challenges />} />
             <Route path="/features" element={<Features />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/about" element={<About />} />
+            
+            {/* Protected routes */}
+            <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+            <Route path="/trainer" element={<PrivateRoute><Trainer /></PrivateRoute>} />
+            <Route path="/progress" element={<PrivateRoute><Progress /></PrivateRoute>} />
+            <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+            <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+            <Route path="/challenges" element={<PrivateRoute><Challenges /></PrivateRoute>} />
+            
+            {/* 404 fallback */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

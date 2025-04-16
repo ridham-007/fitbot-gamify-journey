@@ -10,7 +10,8 @@ import {
   Brain, 
   BarChart2, 
   Trophy,
-  LogOut
+  LogOut,
+  Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/contexts/UserContext';
@@ -81,6 +82,9 @@ const Navbar = ({ isLoggedIn: isLoggedInProp }: NavbarProps) => {
                 </Link>
                 <Link to="/profile" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
                   Profile
+                </Link>
+                <Link to="/settings" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
+                  Settings
                 </Link>
                 <Button 
                   variant="outline" 
@@ -183,6 +187,14 @@ const Navbar = ({ isLoggedIn: isLoggedInProp }: NavbarProps) => {
               >
                 <Trophy className="mr-2 h-5 w-5" />
                 Challenges
+              </Link>
+              <Link 
+                to="/settings" 
+                className="flex items-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-fitDark-800 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-base font-medium"
+                onClick={() => setIsOpen(false)}
+              >
+                <Settings className="mr-2 h-5 w-5" />
+                Settings
               </Link>
               <div className="pt-4">
                 <Button 
