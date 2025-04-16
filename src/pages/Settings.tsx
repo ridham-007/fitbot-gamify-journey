@@ -13,8 +13,15 @@ const Settings = () => {
   const { isLoggedIn } = useUser();
   const [activeTab, setActiveTab] = useState('profile');
 
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoggedIn) {
+      navigate('/login', { state: { from: '/settings' } });
+    }
+  }, [isLoggedIn, navigate]);
+
   return (
-    <MainLayout isLoggedIn={true}>
+    <MainLayout isLoggedIn={isLoggedIn}>
       <div className="bg-gray-50 dark:bg-fitDark-900 min-h-screen py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-2xl font-bold text-fitDark-900 dark:text-white mb-8">Account Settings</h1>
