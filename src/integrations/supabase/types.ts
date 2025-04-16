@@ -35,6 +35,8 @@ export type Database = {
       }
       challenges: {
         Row: {
+          category: string
+          created_by: string | null
           description: string
           difficulty: string
           duration: number
@@ -45,6 +47,8 @@ export type Database = {
           xp_reward: number
         }
         Insert: {
+          category?: string
+          created_by?: string | null
           description: string
           difficulty: string
           duration: number
@@ -55,6 +59,8 @@ export type Database = {
           xp_reward?: number
         }
         Update: {
+          category?: string
+          created_by?: string | null
           description?: string
           difficulty?: string
           duration?: number
@@ -225,7 +231,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      add_user_xp: {
+        Args: { user_id_param: string; xp_amount: number }
+        Returns: undefined
+      }
+      deduct_user_xp: {
+        Args: { user_id_param: string; xp_amount: number }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

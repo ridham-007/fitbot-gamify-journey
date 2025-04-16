@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 
-// Define the Challenge type
+// Define the Challenge type with exact database schema match
 interface Challenge {
   id: string;
   title: string;
@@ -62,7 +62,17 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
   const queryClient = useQueryClient();
 
   const createChallengeMutation = useMutation({
-    mutationFn: async (newChallenge: Partial<Challenge>) => {
+    mutationFn: async (newChallenge: {
+      title: string;
+      description: string;
+      category: string;
+      difficulty: string;
+      xp_reward: number;
+      duration: number;
+      start_date: string;
+      end_date: string;
+      created_by: string;
+    }) => {
       if (!user) throw new Error('User not authenticated');
       
       await supabase.rpc('deduct_user_xp', {
