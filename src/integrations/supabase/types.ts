@@ -9,7 +9,217 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      achievements: {
+        Row: {
+          description: string
+          icon: string
+          id: string
+          name: string
+          xp_reward: number
+        }
+        Insert: {
+          description: string
+          icon: string
+          id?: string
+          name: string
+          xp_reward?: number
+        }
+        Update: {
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
+          xp_reward?: number
+        }
+        Relationships: []
+      }
+      challenges: {
+        Row: {
+          description: string
+          difficulty: string
+          duration: number
+          end_date: string | null
+          id: string
+          start_date: string | null
+          title: string
+          xp_reward: number
+        }
+        Insert: {
+          description: string
+          difficulty: string
+          duration: number
+          end_date?: string | null
+          id?: string
+          start_date?: string | null
+          title: string
+          xp_reward?: number
+        }
+        Update: {
+          description?: string
+          difficulty?: string
+          duration?: number
+          end_date?: string | null
+          id?: string
+          start_date?: string | null
+          title?: string
+          xp_reward?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          experience_level: string | null
+          fitness_goal: string | null
+          id: string
+          preferred_workout_type: string | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          experience_level?: string | null
+          fitness_goal?: string | null
+          id: string
+          preferred_workout_type?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          experience_level?: string | null
+          fitness_goal?: string | null
+          id?: string
+          preferred_workout_type?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          earned_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          earned_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          earned_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_challenges: {
+        Row: {
+          challenge_id: string
+          completed_at: string | null
+          id: string
+          joined_at: string
+          progress: number
+          user_id: string
+        }
+        Insert: {
+          challenge_id: string
+          completed_at?: string | null
+          id?: string
+          joined_at?: string
+          progress?: number
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string
+          completed_at?: string | null
+          id?: string
+          joined_at?: string
+          progress?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_challenges_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_stats: {
+        Row: {
+          last_workout_date: string | null
+          level: number
+          streak: number
+          user_id: string
+          workouts_completed: number
+          xp: number
+        }
+        Insert: {
+          last_workout_date?: string | null
+          level?: number
+          streak?: number
+          user_id: string
+          workouts_completed?: number
+          xp?: number
+        }
+        Update: {
+          last_workout_date?: string | null
+          level?: number
+          streak?: number
+          user_id?: string
+          workouts_completed?: number
+          xp?: number
+        }
+        Relationships: []
+      }
+      workouts: {
+        Row: {
+          calories_burned: number | null
+          completed_at: string
+          duration: number
+          id: string
+          notes: string | null
+          user_id: string
+          workout_type: string
+        }
+        Insert: {
+          calories_burned?: number | null
+          completed_at?: string
+          duration: number
+          id?: string
+          notes?: string | null
+          user_id: string
+          workout_type: string
+        }
+        Update: {
+          calories_burned?: number | null
+          completed_at?: string
+          duration?: number
+          id?: string
+          notes?: string | null
+          user_id?: string
+          workout_type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

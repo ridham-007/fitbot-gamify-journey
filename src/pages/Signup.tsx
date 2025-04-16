@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import MainLayout from '@/components/layout/MainLayout';
+import { supabase } from '@/integrations/supabase/client';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -46,20 +47,32 @@ const Signup = () => {
     setIsLoading(true);
     
     try {
-      // Mock signup - in a real app, this would be an API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast({
-        title: "Account created!",
-        description: "Welcome to FitBot. Your fitness journey begins now!",
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            username: formData.username,
+            fitnessGoal: formData.fitnessGoal,
+            experienceLevel: formData.experienceLevel,
+            preferredWorkoutType: formData.preferredWorkoutType,
+          },
+        },
       });
+
+      if (error) throw error;
       
-      localStorage.setItem('isLoggedIn', 'true');
-      navigate('/dashboard');
-    } catch (error) {
+      if (data) {
+        toast({
+          title: "Account created!",
+          description: "Welcome to FitBot. Your fitness journey begins now!",
+        });
+        navigate('/dashboard');
+      }
+    } catch (error: any) {
       toast({
         title: "Sign up failed",
-        description: "There was a problem creating your account.",
+        description: error.message,
         variant: "destructive",
       });
     } finally {

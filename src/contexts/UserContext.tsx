@@ -1,10 +1,13 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { User } from '@supabase/supabase-js';
 
 type UserContextType = {
   isLoggedIn: boolean;
-  login: () => void;
-  logout: () => void;
+  user: User | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
   userLevel: number;
   userXp: number;
   addXp: (amount: number) => void;
@@ -16,62 +19,103 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [user, setUser] = useState<User | null>(null);
   const [userLevel, setUserLevel] = useState<number>(1);
   const [userXp, setUserXp] = useState<number>(0);
   const [streak, setStreak] = useState<number>(0);
 
   useEffect(() => {
-    // Check if user is already logged in
-    const loggedInStatus = localStorage.getItem('isLoggedIn') === 'true';
-    setIsLoggedIn(loggedInStatus);
-    
-    // Load user stats from localStorage if they exist
-    const savedLevel = localStorage.getItem('userLevel');
-    const savedXp = localStorage.getItem('userXp');
-    const savedStreak = localStorage.getItem('streak');
-    
-    if (savedLevel) setUserLevel(parseInt(savedLevel));
-    if (savedXp) setUserXp(parseInt(savedXp));
-    if (savedStreak) setStreak(parseInt(savedStreak));
+    // Check current auth status
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+      setUser(session?.user ?? null);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Save user stats to localStorage whenever they change
+  // Fetch user stats when user changes
   useEffect(() => {
-    localStorage.setItem('userLevel', userLevel.toString());
-    localStorage.setItem('userXp', userXp.toString());
-    localStorage.setItem('streak', streak.toString());
-  }, [userLevel, userXp, streak]);
+    if (user) {
+      supabase
+        .from('user_stats')
+        .select('level, xp, streak')
+        .eq('user_id', user.id)
+        .single()
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setUserLevel(data.level);
+            setUserXp(data.xp);
+            setStreak(data.streak);
+          }
+        });
+    }
+  }, [user]);
 
-  const login = () => {
-    localStorage.setItem('isLoggedIn', 'true');
-    setIsLoggedIn(true);
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    if (error) throw error;
   };
 
-  const logout = () => {
-    localStorage.removeItem('isLoggedIn');
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
     setIsLoggedIn(false);
+    setUser(null);
   };
 
-  // Function to add XP and level up if necessary
-  const addXp = (amount: number) => {
-    const xpToNextLevel = userLevel * 500; // Simple formula: level * 500 XP needed for next level
+  const addXp = async (amount: number) => {
+    if (!user) return;
+    
     const newXp = userXp + amount;
+    const xpToNextLevel = userLevel * 500;
     
     if (newXp >= xpToNextLevel) {
       // Level up
-      setUserLevel(prev => prev + 1);
+      const newLevel = userLevel + 1;
+      setUserLevel(newLevel);
       setUserXp(newXp - xpToNextLevel);
+      
+      // Update in database
+      await supabase
+        .from('user_stats')
+        .update({
+          level: newLevel,
+          xp: newXp - xpToNextLevel,
+        })
+        .eq('user_id', user.id);
     } else {
       setUserXp(newXp);
+      // Update in database
+      await supabase
+        .from('user_stats')
+        .update({ xp: newXp })
+        .eq('user_id', user.id);
     }
   };
 
-  const updateStreak = (value: number) => {
+  const updateStreak = async (value: number) => {
+    if (!user) return;
     setStreak(value);
+    await supabase
+      .from('user_stats')
+      .update({ streak: value })
+      .eq('user_id', user.id);
   };
 
   const value = {
     isLoggedIn,
+    user,
     login,
     logout,
     userLevel,
