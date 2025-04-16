@@ -23,6 +23,7 @@ export type ChallengeType = {
   progress?: number; // 0-100
   isJoined?: boolean;
   xpCost?: number;
+  created_by?: string | null;
 };
 
 type ChallengeCardProps = {
@@ -61,7 +62,7 @@ const getDifficultyColor = (difficulty: ChallengeType['difficulty']) => {
 };
 
 const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, onJoin }) => {
-  const { userXp } = useUser();
+  const { userXp, user } = useUser();
   const { toast } = useToast();
   
   const handleJoin = () => {
@@ -73,6 +74,16 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, onJoin }) => {
       });
       return;
     }
+    
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "You must be logged in to join challenges.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     onJoin(challenge.id);
     toast({
       title: "Challenge Joined!",

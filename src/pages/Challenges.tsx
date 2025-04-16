@@ -30,7 +30,6 @@ interface Challenge {
   second_place_reward?: number;
   third_place_reward?: number;
   created_by: string | null;
-  created_at?: string;
   isJoined?: boolean;
   progress?: number;
   participants?: number;
@@ -78,13 +77,14 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
       duration: number;
       start_date: string;
       end_date: string;
-      created_by: string;
       join_price_xp: number;
       first_place_reward: number;
       second_place_reward: number;
       third_place_reward: number;
     }) => {
       if (!user) throw new Error('User not authenticated');
+      
+      console.log("Creating challenge with user ID:", user.id);
       
       const { data, error } = await supabase
         .from('challenges')
@@ -161,7 +161,6 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
         duration: durationDays,
         start_date: now.toISOString(),
         end_date: endDate.toISOString(),
-        created_by: user.id,
         join_price_xp: parseInt(joinPrice),
         first_place_reward: parseInt(firstPlaceReward),
         second_place_reward: parseInt(secondPlaceReward),
@@ -449,10 +448,10 @@ const Challenges = () => {
   const { data: challenges, isLoading: isLoadingChallenges } = useQuery({
     queryKey: ['challenges'],
     queryFn: async () => {
+      console.log("Fetching all challenges");
       const { data, error } = await supabase
         .from('challenges')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
       
       if (error) {
         console.error("Error loading challenges:", error);
@@ -469,6 +468,7 @@ const Challenges = () => {
     queryFn: async () => {
       if (!user) return [];
       
+      console.log("Fetching user challenges for user:", user.id);
       const { data, error } = await supabase
         .from('user_challenges')
         .select('*, challenge:challenge_id(*)')
@@ -650,6 +650,7 @@ const Challenges = () => {
   }, [isLoggedIn, navigate]);
   
   const handleRefreshChallenges = () => {
+    console.log("Refreshing challenges data");
     queryClient.invalidateQueries({ queryKey: ['challenges'] });
     queryClient.invalidateQueries({ queryKey: ['userChallenges'] });
   };

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -92,7 +91,7 @@ const ProfileSettings = () => {
             try {
               const { data: storageData } = supabase.storage
                 .from('avatars')
-                .getPublicUrl(data.avatar_url.replace('avatars/', ''));
+                .getPublicUrl(data.avatar_url);
                 
               if (storageData) {
                 setAvatarUrl(storageData.publicUrl);
