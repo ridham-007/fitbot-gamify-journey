@@ -2,92 +2,71 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
-import { useUser } from '@/contexts/UserContext';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Camera, Loader2 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Loader2 } from 'lucide-react';
+import { useUser } from '@/contexts/UserContext';
 
-const profileSchema = z.object({
-  username: z.string().min(3, 'Username must be at least 3 characters'),
-  fitnessGoal: z.string(),
-  experienceLevel: z.string(),
-  preferredWorkoutType: z.string(),
+const profileFormSchema = z.object({
+  username: z.string()
+    .min(2, { message: "Username must be at least 2 characters." })
+    .max(50, { message: "Username must not exceed 50 characters." }),
+  fitnessGoal: z.string().optional(),
+  experienceLevel: z.string().optional(),
+  preferredWorkoutType: z.string().optional(),
 });
 
-type ProfileFormValues = z.infer<typeof profileSchema>;
+type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 const ProfileSettings = () => {
-  const { user, session } = useUser();
+  const { user } = useUser();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-
+  const [isLoading, setIsLoading] = useState(false);
+  
   const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema),
+    resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      username: '',
-      fitnessGoal: '',
-      experienceLevel: '',
-      preferredWorkoutType: '',
+      username: "",
+      fitnessGoal: "",
+      experienceLevel: "",
+      preferredWorkoutType: "",
     },
-    mode: "onChange",
   });
 
-  // Fetch user profile data on component mount
   useEffect(() => {
     if (user) {
-      fetchProfile();
-    }
-  }, [user]);
-
-  const fetchProfile = async () => {
-    try {
-      setIsLoading(true);
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        form.reset({
-          username: data.username || '',
-          fitnessGoal: data.fitness_goal || '',
-          experienceLevel: data.experience_level || '',
-          preferredWorkoutType: data.preferred_workout_type || '',
-        });
-
-        // Set avatar if it exists
-        if (data.avatar_url) {
-          // If it's a complete URL
-          if (data.avatar_url.startsWith('http')) {
-            setAvatarUrl(data.avatar_url);
-          } 
-          // If it's a path in Supabase Storage
-          else {
+      const fetchProfile = async () => {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) {
+          toast({
+            title: "Error",
+            description: "Failed to fetch profile information.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        if (data) {
+          form.reset({
+            username: data.username || '',
+            fitnessGoal: data.fitness_goal || '',
+            experienceLevel: data.experience_level || '',
+            preferredWorkoutType: data.preferred_workout_type || '',
+          });
+          
+          if (data.avatar_url) {
             try {
               const { data: storageData } = supabase.storage
                 .from('avatars')
@@ -97,277 +76,270 @@ const ProfileSettings = () => {
                 setAvatarUrl(storageData.publicUrl);
               }
             } catch (error) {
-              console.error('Error getting public URL:', error);
+              console.error('Error getting avatar URL:', error);
             }
           }
         }
-      }
-    } catch (error: any) {
-      console.error('Error fetching profile:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load profile data',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      setUploading(true);
+      };
       
-      if (!event.target.files || event.target.files.length === 0) {
-        throw new Error('You must select an image to upload.');
-      }
+      fetchProfile();
+    }
+  }, [user, form, toast]);
 
+  const onSubmit = async (data: ProfileFormValues) => {
+    setIsLoading(true);
+    try {
       if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      const file = event.target.files[0];
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user.id}.${fileExt}`;
-
-      console.log('Uploading file:', filePath);
-
-      // Check if "avatars" bucket exists, create if it doesn't
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const avatarBucket = buckets?.find(bucket => bucket.name === 'avatars');
-
-      if (!avatarBucket) {
-        console.log('Creating avatars bucket');
-        await supabase.storage.createBucket('avatars', {
-          public: true,
-          fileSizeLimit: 1024 * 1024 * 2, // 2MB
-        });
-      }
-
-      // Upload file to Supabase Storage
-      const { error: uploadError, data: uploadData } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        throw uploadError;
-      }
-
-      console.log('Upload successful:', uploadData);
-
-      // Get public URL for the file
-      const { data } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      if (data) {
-        // Update profile with new avatar URL
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ avatar_url: filePath })
-          .eq('id', user.id);
-
-        if (updateError) {
-          console.error('Profile update error:', updateError);
-          throw updateError;
-        }
-
-        // Update UI with new avatar
-        setAvatarUrl(data.publicUrl);
-        
         toast({
-          title: 'Success',
-          description: 'Profile picture uploaded successfully',
+          title: "Error",
+          description: "User not authenticated.",
+          variant: "destructive",
         });
+        return;
       }
-    } catch (error: any) {
-      console.error('Avatar upload error:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to upload profile picture',
-        variant: 'destructive',
-      });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const onSubmit = async (values: ProfileFormValues) => {
-    try {
-      setIsLoading(true);
       
-      if (!user) return;
-
-      // Update profile in Supabase
       const { error } = await supabase
         .from('profiles')
         .update({
-          username: values.username,
-          fitness_goal: values.fitnessGoal,
-          experience_level: values.experienceLevel,
-          preferred_workout_type: values.preferredWorkoutType,
+          username: data.username,
+          fitness_goal: data.fitnessGoal,
+          experience_level: data.experienceLevel,
+          preferred_workout_type: data.preferredWorkoutType,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
 
-      if (error) throw error;
-
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to update profile.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Profile updated successfully.",
+        });
+      }
+    } catch (error) {
       toast({
-        title: 'Success',
-        description: 'Profile updated successfully',
-      });
-    } catch (error: any) {
-      console.error('Error updating profile:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update profile',
-        variant: 'destructive',
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "User not authenticated.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // Upload the image to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error("File upload error:", uploadError);
+        toast({
+          title: "Error",
+          description: "Failed to upload avatar.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update the user's profile with the new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          avatar_url: filePath,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error("Profile update error:", updateError);
+        toast({
+          title: "Error",
+          description: "Failed to update profile with avatar.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Get public URL
+      const { data: storageData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+        
+      if (storageData) {
+        setAvatarUrl(storageData.publicUrl);
+      }
+
+      toast({
+        title: "Success",
+        description: "Avatar updated successfully.",
+      });
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred during avatar upload.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   return (
-    <div className="space-y-6">
-      {/* Avatar upload section */}
-      <div className="flex flex-col items-center space-y-4">
-        <div className="relative">
-          <Avatar className="w-24 h-24 border-4 border-white dark:border-fitDark-800 shadow-md">
-            <AvatarImage src={avatarUrl || undefined} />
-            <AvatarFallback className="bg-fitPurple-100 dark:bg-fitPurple-900 text-fitPurple-600 dark:text-fitPurple-400 text-2xl">
-              {form.getValues().username ? form.getValues().username.substring(0, 2).toUpperCase() : 'U'}
-            </AvatarFallback>
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle>Profile Settings</CardTitle>
+        <CardDescription>Manage your profile information and preferences.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center space-x-4">
+          <Avatar className="w-20 h-20">
+            {avatarUrl ? (
+              <AvatarImage src={avatarUrl} alt="Avatar" />
+            ) : (
+              <AvatarFallback>{form.getValues("username")?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
+            )}
           </Avatar>
-          <label 
-            htmlFor="avatar-upload" 
-            className="absolute bottom-0 right-0 bg-fitPurple-600 text-white p-1.5 rounded-full shadow-sm hover:bg-fitPurple-700 transition-colors cursor-pointer"
-          >
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-          </label>
-          <input 
-            id="avatar-upload" 
-            type="file" 
-            accept="image/*" 
-            onChange={uploadAvatar} 
-            className="hidden" 
-            disabled={uploading}
-          />
+          <div>
+            <FormDescription>Update your profile picture</FormDescription>
+            <Input
+              id="change-avatar"
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarChange}
+              disabled={isLoading}
+              className="hidden"
+            />
+            <label
+              htmlFor="change-avatar"
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground hover:bg-secondary h-10 px-4 py-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Camera className="mr-2 h-4 w-4" />
+                  Change Avatar
+                </>
+              )}
+            </label>
+          </div>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Click the camera icon to upload a profile picture
-        </p>
-      </div>
-
-      {/* Profile form */}
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="username"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Username</FormLabel>
-                <FormControl>
-                  <Input {...field} disabled={isLoading} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="fitnessGoal"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Fitness Goal</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  value={field.value}
-                  disabled={isLoading}
-                >
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a goal" />
-                    </SelectTrigger>
+                    <Input placeholder="Enter your username" {...field} />
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="weight-loss">Lose weight</SelectItem>
-                    <SelectItem value="muscle-gain">Build muscle</SelectItem>
-                    <SelectItem value="endurance">Improve endurance</SelectItem>
-                    <SelectItem value="flexibility">Increase flexibility</SelectItem>
-                    <SelectItem value="general-fitness">General fitness</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="experienceLevel"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Experience Level</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  value={field.value}
-                  disabled={isLoading}
-                >
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="fitnessGoal"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fitness Goal</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select experience level" />
-                    </SelectTrigger>
+                    <Input placeholder="e.g., Lose weight, gain muscle" {...field} />
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="beginner">Beginner</SelectItem>
-                    <SelectItem value="intermediate">Intermediate</SelectItem>
-                    <SelectItem value="advanced">Advanced</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="preferredWorkoutType"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Preferred Workout Type</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  value={field.value}
-                  disabled={isLoading}
-                >
+                  <FormDescription>What are you hoping to achieve?</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="experienceLevel"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Experience Level</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your experience level" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="beginner">Beginner</SelectItem>
+                      <SelectItem value="intermediate">Intermediate</SelectItem>
+                      <SelectItem value="advanced">Advanced</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>How experienced are you with fitness?</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="preferredWorkoutType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Preferred Workout Type</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select workout type" />
-                    </SelectTrigger>
+                    <Input placeholder="e.g., Cardio, Strength Training" {...field} />
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="cardio">Cardio</SelectItem>
-                    <SelectItem value="strength">Strength Training</SelectItem>
-                    <SelectItem value="hiit">HIIT</SelectItem>
-                    <SelectItem value="yoga">Yoga</SelectItem>
-                    <SelectItem value="mixed">Mixed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </form>
-      </Form>
-    </div>
+                  <FormDescription>What type of workouts do you enjoy?</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <CardFooter>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Profile"
+                )}
+              </Button>
+            </CardFooter>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
   );
 };
 

@@ -36,6 +36,7 @@ export type Database = {
       challenges: {
         Row: {
           category: string
+          created_at: string | null
           created_by: string | null
           description: string
           difficulty: string
@@ -52,6 +53,7 @@ export type Database = {
         }
         Insert: {
           category?: string
+          created_at?: string | null
           created_by?: string | null
           description: string
           difficulty: string
@@ -68,6 +70,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          created_at?: string | null
           created_by?: string | null
           description?: string
           difficulty?: string
