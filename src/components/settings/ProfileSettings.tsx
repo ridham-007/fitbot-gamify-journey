@@ -83,12 +83,23 @@ const ProfileSettings = () => {
 
         // Set avatar if it exists
         if (data.avatar_url) {
-          // If avatar_url is a path to Supabase Storage
-          if (data.avatar_url.startsWith('avatars/')) {
-            downloadAvatar(data.avatar_url);
-          } else {
-            // If it's a complete URL
+          // If it's a complete URL
+          if (data.avatar_url.startsWith('http')) {
             setAvatarUrl(data.avatar_url);
+          } 
+          // If it's a path in Supabase Storage
+          else {
+            try {
+              const { data: storageData } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(data.avatar_url.replace('avatars/', ''));
+                
+              if (storageData) {
+                setAvatarUrl(storageData.publicUrl);
+              }
+            } catch (error) {
+              console.error('Error getting public URL:', error);
+            }
           }
         }
       }
@@ -104,23 +115,6 @@ const ProfileSettings = () => {
     }
   };
 
-  const downloadAvatar = async (path: string) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('avatars')
-        .download(path.replace('avatars/', ''));
-      
-      if (error) throw error;
-      
-      if (data) {
-        const url = URL.createObjectURL(data);
-        setAvatarUrl(url);
-      }
-    } catch (error: any) {
-      console.error('Error downloading avatar:', error);
-    }
-  };
-
   const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       setUploading(true);
@@ -129,16 +123,39 @@ const ProfileSettings = () => {
         throw new Error('You must select an image to upload.');
       }
 
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const file = event.target.files[0];
       const fileExt = file.name.split('.').pop();
-      const filePath = `${user?.id}.${fileExt}`;
+      const filePath = `${user.id}.${fileExt}`;
+
+      console.log('Uploading file:', filePath);
+
+      // Check if "avatars" bucket exists, create if it doesn't
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const avatarBucket = buckets?.find(bucket => bucket.name === 'avatars');
+
+      if (!avatarBucket) {
+        console.log('Creating avatars bucket');
+        await supabase.storage.createBucket('avatars', {
+          public: true,
+          fileSizeLimit: 1024 * 1024 * 2, // 2MB
+        });
+      }
 
       // Upload file to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('Upload successful:', uploadData);
 
       // Get public URL for the file
       const { data } = supabase.storage
@@ -149,10 +166,13 @@ const ProfileSettings = () => {
         // Update profile with new avatar URL
         const { error: updateError } = await supabase
           .from('profiles')
-          .update({ avatar_url: `avatars/${filePath}` })
-          .eq('id', user?.id);
+          .update({ avatar_url: filePath })
+          .eq('id', user.id);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('Profile update error:', updateError);
+          throw updateError;
+        }
 
         // Update UI with new avatar
         setAvatarUrl(data.publicUrl);
@@ -163,6 +183,7 @@ const ProfileSettings = () => {
         });
       }
     } catch (error: any) {
+      console.error('Avatar upload error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to upload profile picture',

@@ -12,11 +12,42 @@ import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 
+// Define the Challenge type
+interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string;
+  duration: number;
+  start_date: string;
+  end_date: string;
+  xp_reward: number;
+  created_by: string;
+  created_at?: string;
+  isJoined?: boolean;
+  progress?: number;
+  participants?: number;
+  xpCost?: number;
+  userChallengeId?: string;
+}
+
+// Define the UserChallenge type
+interface UserChallenge {
+  id: string;
+  user_id: string;
+  challenge_id: string;
+  progress: number;
+  joined_at: string;
+  completed_at: string | null;
+  challenge: Challenge;
+}
+
 const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => void }) => {
-  const { user, userXp, addXp } = useUser();
+  const { user, userXp } = useUser();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [title, setTitle] = useState('');
@@ -31,9 +62,11 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
   const queryClient = useQueryClient();
 
   const createChallengeMutation = useMutation({
-    mutationFn: async (newChallenge: any) => {
+    mutationFn: async (newChallenge: Partial<Challenge>) => {
+      if (!user) throw new Error('User not authenticated');
+      
       await supabase.rpc('deduct_user_xp', {
-        user_id_param: user?.id,
+        user_id_param: user.id,
         xp_amount: xpCost
       });
 
@@ -261,11 +294,20 @@ const ChallengeLeaderboardDialog = ({ challengeId, title }: { challengeId: strin
     queryKey: ['challengeLeaderboard', challengeId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .rpc('get_challenge_leaderboard', { challenge_id_param: challengeId })
+        .from('user_challenges')
+        .select('id, user_id, progress, user:user_id(id, profiles:profiles(username))')
+        .eq('challenge_id', challengeId)
+        .order('progress', { ascending: false })
         .limit(10);
       
       if (error) throw error;
-      return data || [];
+      
+      // Format the data to extract username from nested structure
+      return data.map((item: any) => ({
+        user_id: item.user_id,
+        progress: item.progress,
+        username: item.user?.profiles?.username || `User ${item.user_id.substr(0, 4)}`
+      }));
     },
     enabled: isOpen // Only fetch when dialog is open
   });
@@ -350,7 +392,7 @@ const ChallengeLeaderboardDialog = ({ challengeId, title }: { challengeId: strin
 
 const Challenges = () => {
   const navigate = useNavigate();
-  const { isLoggedIn, user, addXp } = useUser();
+  const { isLoggedIn, user, userXp } = useUser();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('all');
@@ -364,7 +406,12 @@ const Challenges = () => {
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error loading challenges:", error);
+        throw error;
+      }
+      
+      console.log("Loaded challenges:", data);
       return data || [];
     }
   });
@@ -379,7 +426,12 @@ const Challenges = () => {
         .select('*, challenge:challenge_id(*)')
         .eq('user_id', user.id);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error loading user challenges:", error);
+        throw error;
+      }
+      
+      console.log("Loaded user challenges:", data);
       return data || [];
     },
     enabled: !!user
@@ -499,8 +551,8 @@ const Challenges = () => {
   const processedChallenges = React.useMemo(() => {
     if (!challenges || !userChallenges) return [];
     
-    return challenges.map(challenge => {
-      const userChallenge = userChallenges.find(uc => uc.challenge_id === challenge.id);
+    return challenges.map((challenge: Challenge) => {
+      const userChallenge = userChallenges.find((uc: UserChallenge) => uc.challenge_id === challenge.id);
       
       const participants = Math.floor(Math.random() * 200) + 10;
       
@@ -520,7 +572,7 @@ const Challenges = () => {
   const filteredChallenges = React.useMemo(() => {
     if (!processedChallenges) return [];
     
-    return processedChallenges.filter(challenge => {
+    return processedChallenges.filter((challenge: Challenge) => {
       const matchesSearch = 
         challenge.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
         challenge.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -620,7 +672,7 @@ const Challenges = () => {
                 </div>
               ) : filteredChallenges.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredChallenges.map(challenge => (
+                  {filteredChallenges.map((challenge: Challenge) => (
                     <div key={challenge.id} className="bg-white dark:bg-fitDark-800 border border-gray-200 dark:border-fitDark-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                       <div className="p-5">
                         <div className="flex justify-between items-start mb-2">
@@ -716,6 +768,7 @@ const Challenges = () => {
               )}
             </TabsContent>
             
+            
             <TabsContent value="joined" className="mt-0">
               {isLoadingChallenges || isLoadingUserChallenges ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -757,217 +810,4 @@ const Challenges = () => {
                               <span className="text-muted-foreground">Reward</span>
                               <span className="font-medium text-green-600 dark:text-green-400">{challenge.xp_reward} XP</span>
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Start Date</span>
-                              <span className="font-medium">{new Date(challenge.start_date).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Participants</span>
-                              <span className="font-medium">{challenge.participants}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-3">
-                            <div className="space-y-1">
-                              <div className="flex justify-between text-sm">
-                                <span>Progress</span>
-                                <span className="font-medium">{challenge.progress}%</span>
-                              </div>
-                              <div className="w-full h-2 bg-gray-100 dark:bg-fitDark-700 rounded-full overflow-hidden">
-                                <div 
-                                  className={cn(
-                                    "h-full rounded-full transition-all",
-                                    challenge.progress < 30 ? "bg-blue-500" :
-                                    challenge.progress < 70 ? "bg-yellow-500" : "bg-green-500"
-                                  )}
-                                  style={{ width: `${challenge.progress}%` }}
-                                />
-                              </div>
-                            </div>
-                            {challenge.progress < 100 ? (
-                              <Button 
-                                onClick={() => challenge.userChallengeId && handleUpdateProgress(challenge.userChallengeId, challenge.progress)}
-                                className="w-full"
-                              >
-                                Update Progress (+10%)
-                              </Button>
-                            ) : (
-                              <Button className="w-full" variant="outline" disabled>
-                                <Award className="h-4 w-4 mr-2" />
-                                Challenge Completed
-                              </Button>
-                            )}
-                            <ChallengeLeaderboardDialog challengeId={challenge.id} title={challenge.title} />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <div className="py-16 text-center">
-                  <Trophy className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-4" />
-                  <h3 className="text-xl font-medium mb-2">No Challenges Joined Yet</h3>
-                  <p className="text-muted-foreground mb-6">Join a challenge to track your progress and earn rewards</p>
-                  <Button onClick={() => setFilter('active')}>
-                    Browse Active Challenges
-                  </Button>
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="active" className="mt-0">
-              {isLoadingChallenges || isLoadingUserChallenges ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-gray-50 dark:bg-fitDark-700/20 p-6 rounded-lg animate-pulse">
-                      <div className="h-6 w-2/3 bg-gray-200 dark:bg-fitDark-600 rounded mb-4"></div>
-                      <div className="h-20 bg-gray-200 dark:bg-fitDark-600 rounded mb-4"></div>
-                      <div className="h-8 bg-gray-200 dark:bg-fitDark-600 rounded"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredChallenges
-                    .filter(c => {
-                      const now = new Date();
-                      const startDate = new Date(c.start_date);
-                      const endDate = new Date(c.end_date);
-                      return now >= startDate && now <= endDate && !c.isJoined;
-                    })
-                    .map(challenge => (
-                      <div key={challenge.id} className="bg-white dark:bg-fitDark-800 border border-gray-200 dark:border-fitDark-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        <div className="p-5">
-                          <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-lg font-semibold line-clamp-1">{challenge.title}</h3>
-                            <Badge variant={
-                              challenge.difficulty === 'beginner' ? 'outline' :
-                              challenge.difficulty === 'intermediate' ? 'secondary' : 'destructive'
-                            }>
-                              {challenge.difficulty.charAt(0).toUpperCase() + challenge.difficulty.slice(1)}
-                            </Badge>
-                          </div>
-                          
-                          <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
-                            {challenge.description}
-                          </p>
-                          
-                          <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Duration</span>
-                              <span className="font-medium">{challenge.duration} days</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Reward</span>
-                              <span className="font-medium text-green-600 dark:text-green-400">{challenge.xp_reward} XP</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Start Date</span>
-                              <span className="font-medium">{new Date(challenge.start_date).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Participants</span>
-                              <span className="font-medium">{challenge.participants}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <p className="text-sm text-muted-foreground">
-                              Join fee: <span className="font-medium text-red-500">{challenge.xpCost} XP</span>
-                            </p>
-                            <Button 
-                              onClick={() => handleJoinChallenge(challenge.id, challenge.xpCost)}
-                              className="w-full"
-                            >
-                              Join Challenge ({challenge.xpCost} XP)
-                            </Button>
-                            <ChallengeLeaderboardDialog challengeId={challenge.id} title={challenge.title} />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="upcoming" className="mt-0">
-              {isLoadingChallenges || isLoadingUserChallenges ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-gray-50 dark:bg-fitDark-700/20 p-6 rounded-lg animate-pulse">
-                      <div className="h-6 w-2/3 bg-gray-200 dark:bg-fitDark-600 rounded mb-4"></div>
-                      <div className="h-20 bg-gray-200 dark:bg-fitDark-600 rounded mb-4"></div>
-                      <div className="h-8 bg-gray-200 dark:bg-fitDark-600 rounded"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredChallenges
-                    .filter(c => {
-                      const now = new Date();
-                      const startDate = new Date(c.start_date);
-                      return now < startDate;
-                    })
-                    .map(challenge => (
-                      <div key={challenge.id} className="bg-white dark:bg-fitDark-800 border border-gray-200 dark:border-fitDark-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        <div className="p-5">
-                          <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-lg font-semibold line-clamp-1">{challenge.title}</h3>
-                            <Badge variant={
-                              challenge.difficulty === 'beginner' ? 'outline' :
-                              challenge.difficulty === 'intermediate' ? 'secondary' : 'destructive'
-                            }>
-                              {challenge.difficulty.charAt(0).toUpperCase() + challenge.difficulty.slice(1)}
-                            </Badge>
-                          </div>
-                          
-                          <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
-                            {challenge.description}
-                          </p>
-                          
-                          <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Duration</span>
-                              <span className="font-medium">{challenge.duration} days</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Reward</span>
-                              <span className="font-medium text-green-600 dark:text-green-400">{challenge.xp_reward} XP</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Start Date</span>
-                              <span className="font-medium">{new Date(challenge.start_date).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Participants</span>
-                              <span className="font-medium">{challenge.participants}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <p className="text-sm text-muted-foreground">
-                              Join fee: <span className="font-medium text-red-500">{challenge.xpCost} XP</span>
-                            </p>
-                            <Button 
-                              onClick={() => handleJoinChallenge(challenge.id, challenge.xpCost)}
-                              className="w-full"
-                            >
-                              Join Challenge ({challenge.xpCost} XP)
-                            </Button>
-                            <ChallengeLeaderboardDialog challengeId={challenge.id} title={challenge.title} />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-    </MainLayout>
-  );
-};
-
-export default Challenges;
+                            <div className="
