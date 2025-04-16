@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -76,6 +77,7 @@ const Signup = () => {
       experienceLevel: '',
       preferredWorkoutType: '',
     },
+    mode: "onChange", // Validate on change to give immediate feedback
   });
 
   const handleAccountSubmit = (values: AccountFormValues) => {
@@ -102,6 +104,18 @@ const Signup = () => {
     setIsLoading(true);
     
     try {
+      // Log form values for debugging
+      console.log("Submitting to Supabase with:", {
+        email: accountData.email,
+        password: accountData.password,
+        userData: {
+          username: accountData.username,
+          fitnessGoal: values.fitnessGoal,
+          experienceLevel: values.experienceLevel,
+          preferredWorkoutType: values.preferredWorkoutType,
+        }
+      });
+
       const { data, error } = await supabase.auth.signUp({
         email: accountData.email,
         password: accountData.password,
@@ -227,6 +241,7 @@ const Signup = () => {
                         <FormLabel>What's your primary fitness goal?</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
+                          value={field.value}
                           defaultValue={field.value}
                         >
                           <FormControl>
@@ -255,6 +270,7 @@ const Signup = () => {
                         <FormLabel>What's your fitness experience level?</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
+                          value={field.value}
                           defaultValue={field.value}
                         >
                           <FormControl>
@@ -281,6 +297,7 @@ const Signup = () => {
                         <FormLabel>What type of workouts do you prefer?</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
+                          value={field.value}
                           defaultValue={field.value}
                         >
                           <FormControl>
