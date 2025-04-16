@@ -12,7 +12,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useQuery, useMutation, useQueryClient from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 
 // Define the Challenge type
@@ -302,14 +302,13 @@ const ChallengeLeaderboardDialog = ({ challengeId, title }: { challengeId: strin
       
       if (error) throw error;
       
-      // Format the data to extract username from nested structure
       return data.map((item: any) => ({
         user_id: item.user_id,
         progress: item.progress,
         username: item.user?.profiles?.username || `User ${item.user_id.substr(0, 4)}`
       }));
     },
-    enabled: isOpen // Only fetch when dialog is open
+    enabled: isOpen
   });
 
   return (
@@ -768,7 +767,6 @@ const Challenges = () => {
               )}
             </TabsContent>
             
-            
             <TabsContent value="joined" className="mt-0">
               {isLoadingChallenges || isLoadingUserChallenges ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -810,4 +808,80 @@ const Challenges = () => {
                               <span className="text-muted-foreground">Reward</span>
                               <span className="font-medium text-green-600 dark:text-green-400">{challenge.xp_reward} XP</span>
                             </div>
-                            <div className="
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground">Start Date</span>
+                              <span className="font-medium">{new Date(challenge.start_date).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground">Participants</span>
+                              <span className="font-medium">{challenge.participants}</span>
+                            </div>
+                          </div>
+                          
+                          {challenge.isJoined ? (
+                            <div className="space-y-3">
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-sm">
+                                  <span>Progress</span>
+                                  <span className="font-medium">{challenge.progress}%</span>
+                                </div>
+                                <div className="w-full h-2 bg-gray-100 dark:bg-fitDark-700 rounded-full overflow-hidden">
+                                  <div 
+                                    className={cn(
+                                      "h-full rounded-full transition-all",
+                                      challenge.progress < 30 ? "bg-blue-500" :
+                                      challenge.progress < 70 ? "bg-yellow-500" : "bg-green-500"
+                                    )}
+                                    style={{ width: `${challenge.progress}%` }}
+                                  />
+                                </div>
+                              </div>
+                              {challenge.progress < 100 ? (
+                                <Button 
+                                  onClick={() => challenge.userChallengeId && handleUpdateProgress(challenge.userChallengeId, challenge.progress)}
+                                  className="w-full"
+                                >
+                                  Update Progress (+10%)
+                                </Button>
+                              ) : (
+                                <Button className="w-full" variant="outline" disabled>
+                                  <Award className="h-4 w-4 mr-2" />
+                                  Challenge Completed
+                                </Button>
+                              )}
+                              <ChallengeLeaderboardDialog challengeId={challenge.id} title={challenge.title} />
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <p className="text-sm text-muted-foreground">
+                                Join fee: <span className="font-medium text-red-500">{challenge.xpCost} XP</span>
+                              </p>
+                              <Button 
+                                onClick={() => handleJoinChallenge(challenge.id, challenge.xpCost)}
+                                className="w-full"
+                              >
+                                Join Challenge ({challenge.xpCost} XP)
+                              </Button>
+                              <ChallengeLeaderboardDialog challengeId={challenge.id} title={challenge.title} />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="py-16 text-center">
+                  <Trophy className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-4" />
+                  <h3 className="text-xl font-medium mb-2">No Challenges Found</h3>
+                  <p className="text-muted-foreground mb-6">Try adjusting your filters or create a new challenge</p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </MainLayout>
+  );
+};
+
+export default Challenges;
