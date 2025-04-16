@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
@@ -132,7 +131,7 @@ const UserProfile = () => {
           fitness_goal: profileData.fitnessGoal,
           preferred_workout_type: profileData.preferredWorkoutType,
           experience_level: profileData.experienceLevel,
-          updated_at: new Date(),
+          updated_at: new Date().toISOString(),
         })
         .eq('id', user?.id);
 

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -27,7 +26,6 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
-// First step validation schema
 const accountFormSchema = z.object({
   email: z.string().email("Please enter a valid email"),
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -38,7 +36,6 @@ const accountFormSchema = z.object({
   path: ["confirmPassword"],
 });
 
-// Second step validation schema
 const profileFormSchema = z.object({
   fitnessGoal: z.string().min(1, "Please select a fitness goal"),
   experienceLevel: z.string().min(1, "Please select your experience level"),
@@ -56,14 +53,12 @@ const Signup = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [accountData, setAccountData] = useState<AccountFormValues | null>(null);
 
-  // Redirect if already logged in
   useEffect(() => {
     if (isLoggedIn) {
       navigate('/dashboard');
     }
   }, [isLoggedIn, navigate]);
 
-  // Account form (first step)
   const accountForm = useForm<AccountFormValues>({
     resolver: zodResolver(accountFormSchema),
     defaultValues: {
@@ -74,7 +69,6 @@ const Signup = () => {
     },
   });
 
-  // Profile form (second step)
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
@@ -85,12 +79,25 @@ const Signup = () => {
   });
 
   const handleAccountSubmit = (values: AccountFormValues) => {
+    console.log("Account form submitted:", values);
     setAccountData(values);
     setCurrentStep(2);
   };
 
   const handleProfileSubmit = async (values: ProfileFormValues) => {
-    if (!accountData) return;
+    if (!accountData) {
+      console.error("Account data is missing");
+      toast({
+        title: "Error",
+        description: "Please complete step 1 first",
+        variant: "destructive",
+      });
+      setCurrentStep(1);
+      return;
+    }
+    
+    console.log("Profile form submitted:", values);
+    console.log("With account data:", accountData);
     
     setIsLoading(true);
     
@@ -118,6 +125,7 @@ const Signup = () => {
         navigate('/dashboard');
       }
     } catch (error: any) {
+      console.error("Signup error:", error);
       toast({
         title: "Sign up failed",
         description: error.message || "An error occurred during signup",
