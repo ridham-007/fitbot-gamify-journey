@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
@@ -16,7 +15,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 
-// Define the Challenge type with exact database schema match
 interface Challenge {
   id: string;
   title: string;
@@ -42,7 +40,6 @@ interface Challenge {
   reward_claimed?: boolean;
 }
 
-// Define the UserChallenge type
 interface UserChallenge {
   id: string;
   user_id: string;
@@ -91,11 +88,17 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
       
       const { data, error } = await supabase
         .from('challenges')
-        .insert([newChallenge])
+        .insert([{
+          ...newChallenge,
+          created_by: user.id,
+        }])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Challenge creation error:', error);
+        throw error;
+      }
       return data;
     },
     onSuccess: () => {
@@ -109,7 +112,6 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
       setIsOpen(false);
       onCreateSuccess();
       
-      // Reset form
       setTitle('');
       setDescription('');
       setDifficulty('beginner');
