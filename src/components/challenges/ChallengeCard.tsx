@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Trophy, Users, Calendar, Award } from "lucide-react";
 import { useUser } from '@/contexts/UserContext';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 export type ChallengeType = {
   id: string;
@@ -22,6 +22,7 @@ export type ChallengeType = {
   isActive: boolean;
   progress?: number; // 0-100
   isJoined?: boolean;
+  xpCost?: number;
 };
 
 type ChallengeCardProps = {
@@ -60,10 +61,18 @@ const getDifficultyColor = (difficulty: ChallengeType['difficulty']) => {
 };
 
 const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, onJoin }) => {
-  const { addXp } = useUser();
+  const { userXp } = useUser();
   const { toast } = useToast();
   
   const handleJoin = () => {
+    if (challenge.xpCost && userXp < challenge.xpCost) {
+      toast({
+        title: "Not Enough XP!",
+        description: `You need ${challenge.xpCost - userXp} more XP to join this challenge.`,
+        variant: "destructive",
+      });
+      return;
+    }
     onJoin(challenge.id);
     toast({
       title: "Challenge Joined!",
@@ -138,8 +147,16 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, onJoin }) => {
             View Details
           </Button>
         ) : (
-          <Button className="w-full" onClick={handleJoin} disabled={!challenge.isActive}>
-            Join Challenge
+          <Button 
+            className="w-full" 
+            onClick={handleJoin} 
+            disabled={!challenge.isActive || (challenge.xpCost !== undefined && userXp < challenge.xpCost)}
+          >
+            {challenge.xpCost !== undefined && userXp < challenge.xpCost 
+              ? 'Not enough XP' 
+              : challenge.xpCost 
+                ? `Join Challenge (${challenge.xpCost} XP)` 
+                : 'Join Challenge'}
           </Button>
         )}
       </CardFooter>

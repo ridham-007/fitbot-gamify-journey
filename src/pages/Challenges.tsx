@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
@@ -794,8 +795,9 @@ const Challenges = () => {
                             <Button 
                               onClick={() => handleJoinChallenge(challenge.id, challenge.xpCost)}
                               className="w-full"
+                              disabled={userXp < challenge.xpCost}
                             >
-                              Join Challenge ({challenge.xpCost} XP)
+                              {userXp < challenge.xpCost ? 'Not enough XP' : `Join Challenge (${challenge.xpCost} XP)`}
                             </Button>
                             <ChallengeLeaderboardDialog challengeId={challenge.id} title={challenge.title} />
                           </div>
@@ -827,4 +829,260 @@ const Challenges = () => {
               ) : filteredChallenges.filter(c => c.isJoined).length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredChallenges
-                    .filter(c => c
+                    .filter(c => c.isJoined)
+                    .map((challenge: Challenge) => (
+                      <div key={challenge.id} className="bg-white dark:bg-fitDark-800 border border-gray-200 dark:border-fitDark-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div className="p-5">
+                          <div className="flex justify-between items-start mb-2">
+                            <h3 className="text-lg font-semibold line-clamp-1">{challenge.title}</h3>
+                            <Badge variant={
+                              challenge.difficulty === 'beginner' ? 'outline' :
+                              challenge.difficulty === 'intermediate' ? 'secondary' : 'destructive'
+                            }>
+                              {challenge.difficulty.charAt(0).toUpperCase() + challenge.difficulty.slice(1)}
+                            </Badge>
+                          </div>
+                          
+                          <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
+                            {challenge.description}
+                          </p>
+                          
+                          <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground">Duration</span>
+                              <span className="font-medium">{challenge.duration} days</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground">Reward</span>
+                              <span className="font-medium text-green-600 dark:text-green-400">{challenge.xp_reward} XP</span>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-sm">
+                                <span>Progress</span>
+                                <span className="font-medium">{challenge.progress}%</span>
+                              </div>
+                              <div className="w-full h-2 bg-gray-100 dark:bg-fitDark-700 rounded-full overflow-hidden">
+                                <div 
+                                  className={cn(
+                                    "h-full rounded-full transition-all",
+                                    challenge.progress < 30 ? "bg-blue-500" :
+                                    challenge.progress < 70 ? "bg-yellow-500" : "bg-green-500"
+                                  )}
+                                  style={{ width: `${challenge.progress}%` }}
+                                />
+                              </div>
+                            </div>
+                            {challenge.progress < 100 ? (
+                              <Button 
+                                onClick={() => challenge.userChallengeId && handleUpdateProgress(challenge.userChallengeId, challenge.progress)}
+                                className="w-full"
+                              >
+                                Update Progress (+10%)
+                              </Button>
+                            ) : (
+                              <Button className="w-full" variant="outline" disabled>
+                                <Award className="h-4 w-4 mr-2" />
+                                Challenge Completed
+                              </Button>
+                            )}
+                            <ChallengeLeaderboardDialog challengeId={challenge.id} title={challenge.title} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="py-16 text-center">
+                  <Trophy className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-4" />
+                  <h3 className="text-xl font-medium mb-2">No Joined Challenges</h3>
+                  <p className="text-muted-foreground mb-6">You haven't joined any challenges yet</p>
+                  <Button onClick={() => setFilter('all')}>Browse Challenges</Button>
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="active" className="mt-0">
+              {isLoadingChallenges || isLoadingUserChallenges ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="bg-gray-50 dark:bg-fitDark-700/20 p-6 rounded-lg animate-pulse">
+                      <div className="h-6 w-2/3 bg-gray-200 dark:bg-fitDark-600 rounded mb-4"></div>
+                      <div className="h-20 bg-gray-200 dark:bg-fitDark-600 rounded mb-4"></div>
+                      <div className="h-8 bg-gray-200 dark:bg-fitDark-600 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (() => {
+                const now = new Date();
+                const activeChallenges = filteredChallenges.filter(c => {
+                  const startDate = new Date(c.start_date);
+                  const endDate = new Date(c.end_date);
+                  return now >= startDate && now <= endDate && !c.isJoined;
+                });
+                
+                return activeChallenges.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {activeChallenges.map((challenge: Challenge) => (
+                      <div key={challenge.id} className="bg-white dark:bg-fitDark-800 border border-gray-200 dark:border-fitDark-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div className="p-5">
+                          <div className="flex justify-between items-start mb-2">
+                            <h3 className="text-lg font-semibold line-clamp-1">{challenge.title}</h3>
+                            <Badge variant={
+                              challenge.difficulty === 'beginner' ? 'outline' :
+                              challenge.difficulty === 'intermediate' ? 'secondary' : 'destructive'
+                            }>
+                              {challenge.difficulty.charAt(0).toUpperCase() + challenge.difficulty.slice(1)}
+                            </Badge>
+                          </div>
+                          
+                          <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
+                            {challenge.description}
+                          </p>
+                          
+                          <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground">Duration</span>
+                              <span className="font-medium">{challenge.duration} days</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground">Reward</span>
+                              <span className="font-medium text-green-600 dark:text-green-400">{challenge.xp_reward} XP</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground">End Date</span>
+                              <span className="font-medium">{new Date(challenge.end_date).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground">Participants</span>
+                              <span className="font-medium">{challenge.participants}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">
+                              Join fee: <span className="font-medium text-red-500">{challenge.xpCost} XP</span>
+                            </p>
+                            <Button 
+                              onClick={() => handleJoinChallenge(challenge.id, challenge.xpCost)}
+                              className="w-full"
+                              disabled={userXp < challenge.xpCost}
+                            >
+                              {userXp < challenge.xpCost ? 'Not enough XP' : `Join Challenge (${challenge.xpCost} XP)`}
+                            </Button>
+                            <ChallengeLeaderboardDialog challengeId={challenge.id} title={challenge.title} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-16 text-center">
+                    <Trophy className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-4" />
+                    <h3 className="text-xl font-medium mb-2">No Active Challenges</h3>
+                    <p className="text-muted-foreground mb-6">There are no active challenges at the moment</p>
+                    <Button onClick={() => setFilter('all')}>Browse All Challenges</Button>
+                  </div>
+                );
+              })()}
+            </TabsContent>
+            
+            <TabsContent value="upcoming" className="mt-0">
+              {isLoadingChallenges || isLoadingUserChallenges ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="bg-gray-50 dark:bg-fitDark-700/20 p-6 rounded-lg animate-pulse">
+                      <div className="h-6 w-2/3 bg-gray-200 dark:bg-fitDark-600 rounded mb-4"></div>
+                      <div className="h-20 bg-gray-200 dark:bg-fitDark-600 rounded mb-4"></div>
+                      <div className="h-8 bg-gray-200 dark:bg-fitDark-600 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (() => {
+                const now = new Date();
+                const upcomingChallenges = filteredChallenges.filter(c => {
+                  const startDate = new Date(c.start_date);
+                  return now < startDate;
+                });
+                
+                return upcomingChallenges.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {upcomingChallenges.map((challenge: Challenge) => (
+                      <div key={challenge.id} className="bg-white dark:bg-fitDark-800 border border-gray-200 dark:border-fitDark-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div className="p-5">
+                          <div className="flex justify-between items-start mb-2">
+                            <h3 className="text-lg font-semibold line-clamp-1">{challenge.title}</h3>
+                            <Badge variant={
+                              challenge.difficulty === 'beginner' ? 'outline' :
+                              challenge.difficulty === 'intermediate' ? 'secondary' : 'destructive'
+                            }>
+                              {challenge.difficulty.charAt(0).toUpperCase() + challenge.difficulty.slice(1)}
+                            </Badge>
+                          </div>
+                          
+                          <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
+                            {challenge.description}
+                          </p>
+                          
+                          <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground">Duration</span>
+                              <span className="font-medium">{challenge.duration} days</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground">Reward</span>
+                              <span className="font-medium text-green-600 dark:text-green-400">{challenge.xp_reward} XP</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground">Starts</span>
+                              <span className="font-medium">{new Date(challenge.start_date).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground">Participants</span>
+                              <span className="font-medium">{challenge.participants}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3 mb-4">
+                            <p className="text-sm text-blue-800 dark:text-blue-300">
+                              <span className="font-medium">Coming soon!</span> This challenge will start in {Math.ceil((new Date(challenge.start_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))} days
+                            </p>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">
+                              Registration fee: <span className="font-medium text-red-500">{challenge.xpCost} XP</span>
+                            </p>
+                            <Button 
+                              onClick={() => handleJoinChallenge(challenge.id, challenge.xpCost)}
+                              className="w-full"
+                              disabled={userXp < challenge.xpCost}
+                            >
+                              {userXp < challenge.xpCost ? 'Not enough XP' : `Register (${challenge.xpCost} XP)`}
+                            </Button>
+                            <ChallengeLeaderboardDialog challengeId={challenge.id} title={challenge.title} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-16 text-center">
+                    <Trophy className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-4" />
+                    <h3 className="text-xl font-medium mb-2">No Upcoming Challenges</h3>
+                    <p className="text-muted-foreground mb-6">There are no upcoming challenges at the moment</p>
+                    <Button onClick={() => setFilter('all')}>Browse All Challenges</Button>
+                  </div>
+                );
+              })()}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </MainLayout>
+  );
+};
+
+export default Challenges;
