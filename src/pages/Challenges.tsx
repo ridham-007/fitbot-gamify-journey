@@ -26,13 +26,19 @@ interface Challenge {
   start_date: string;
   end_date: string;
   xp_reward: number;
-  created_by: string;
+  join_price_xp: number;
+  first_place_reward?: number;
+  second_place_reward?: number;
+  third_place_reward?: number;
+  created_by: string | null;
   created_at?: string;
   isJoined?: boolean;
   progress?: number;
   participants?: number;
   xpCost?: number;
   userChallengeId?: string;
+  rank?: number;
+  reward_claimed?: boolean;
 }
 
 // Define the UserChallenge type
@@ -56,9 +62,12 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
   const [category, setCategory] = useState('cardio');
   const [duration, setDuration] = useState('7');
   const [xpReward, setXpReward] = useState('100');
-  const [xpCost, setXpCost] = useState(100); // Fixed cost to create a challenge
+  const [joinPrice, setJoinPrice] = useState('50');
+  const [firstPlaceReward, setFirstPlaceReward] = useState('500');
+  const [secondPlaceReward, setSecondPlaceReward] = useState('300');
+  const [thirdPlaceReward, setThirdPlaceReward] = useState('200');
   const [isOpen, setIsOpen] = useState(false);
-
+  
   const queryClient = useQueryClient();
 
   const createChallengeMutation = useMutation({
@@ -72,14 +81,13 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
       start_date: string;
       end_date: string;
       created_by: string;
+      join_price_xp: number;
+      first_place_reward: number;
+      second_place_reward: number;
+      third_place_reward: number;
     }) => {
       if (!user) throw new Error('User not authenticated');
       
-      await supabase.rpc('deduct_user_xp', {
-        user_id_param: user.id,
-        xp_amount: xpCost
-      });
-
       const { data, error } = await supabase
         .from('challenges')
         .insert([newChallenge])
@@ -91,22 +99,26 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['challenges'] });
-      queryClient.invalidateQueries({ queryKey: ['userStats'] });
       
       toast({
         title: "Challenge Created!",
-        description: `Your challenge has been created and ${xpCost} XP has been deducted.`,
+        description: "Your challenge has been created successfully.",
       });
       
       setIsOpen(false);
       onCreateSuccess();
       
+      // Reset form
       setTitle('');
       setDescription('');
       setDifficulty('beginner');
       setCategory('cardio');
       setDuration('7');
       setXpReward('100');
+      setJoinPrice('50');
+      setFirstPlaceReward('500');
+      setSecondPlaceReward('300');
+      setThirdPlaceReward('200');
     },
     onError: (error: any) => {
       toast({
@@ -129,15 +141,6 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
       return;
     }
     
-    if (userXp < xpCost) {
-      toast({
-        title: "Insufficient XP",
-        description: `You need ${xpCost} XP to create a challenge. You currently have ${userXp} XP.`,
-        variant: "destructive",
-      });
-      return;
-    }
-    
     setIsSubmitting(true);
     
     try {
@@ -155,7 +158,11 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
         duration: durationDays,
         start_date: now.toISOString(),
         end_date: endDate.toISOString(),
-        created_by: user.id
+        created_by: user.id,
+        join_price_xp: parseInt(joinPrice),
+        first_place_reward: parseInt(firstPlaceReward),
+        second_place_reward: parseInt(secondPlaceReward),
+        third_place_reward: parseInt(thirdPlaceReward)
       };
       
       createChallengeMutation.mutate(newChallenge);
@@ -185,7 +192,7 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
             Create New Challenge
           </DialogTitle>
           <DialogDescription>
-            Create a custom challenge for the community. Cost: {xpCost} XP
+            Create a custom challenge for the community
           </DialogDescription>
         </DialogHeader>
         
@@ -260,35 +267,64 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
             </div>
             
             <div className="space-y-2">
-              <label htmlFor="xpReward" className="text-sm font-medium">XP Reward</label>
+              <label htmlFor="joinPrice" className="text-sm font-medium">Join Price (XP)</label>
               <Input
-                id="xpReward"
+                id="joinPrice"
                 type="number"
-                min="50"
-                max="1000"
-                value={xpReward}
-                onChange={(e) => setXpReward(e.target.value)}
+                min="0"
+                value={joinPrice}
+                onChange={(e) => setJoinPrice(e.target.value)}
                 required
               />
             </div>
           </div>
-          
-          <div className="pt-4 flex justify-between items-center">
-            <div className="text-sm text-muted-foreground">
-              Your XP Balance: <span className="font-semibold">{userXp} XP</span>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Cost: <span className="font-semibold text-red-500">-{xpCost} XP</span>
+
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium">Winner Rewards (XP)</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label htmlFor="firstPlace" className="text-sm text-muted-foreground">1st Place</label>
+                <Input
+                  id="firstPlace"
+                  type="number"
+                  min="0"
+                  value={firstPlaceReward}
+                  onChange={(e) => setFirstPlaceReward(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="secondPlace" className="text-sm text-muted-foreground">2nd Place</label>
+                <Input
+                  id="secondPlace"
+                  type="number"
+                  min="0"
+                  value={secondPlaceReward}
+                  onChange={(e) => setSecondPlaceReward(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="thirdPlace" className="text-sm text-muted-foreground">3rd Place</label>
+                <Input
+                  id="thirdPlace"
+                  type="number"
+                  min="0"
+                  value={thirdPlaceReward}
+                  onChange={(e) => setThirdPlaceReward(e.target.value)}
+                  required
+                />
+              </div>
             </div>
           </div>
           
           <DialogFooter>
             <Button
               type="submit"
-              disabled={isSubmitting || userXp < xpCost}
+              disabled={isSubmitting}
               className="w-full"
             >
-              {isSubmitting ? 'Creating...' : `Create Challenge (${xpCost} XP)`}
+              {isSubmitting ? 'Creating...' : 'Create Challenge'}
             </Button>
           </DialogFooter>
         </form>
@@ -565,7 +601,7 @@ const Challenges = () => {
       
       const participants = Math.floor(Math.random() * 200) + 10;
       
-      const xpCost = Math.floor(challenge.xp_reward * 0.2);
+      const xpCost = challenge.join_price_xp;
       
       return {
         ...challenge,
@@ -791,107 +827,4 @@ const Challenges = () => {
               ) : filteredChallenges.filter(c => c.isJoined).length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredChallenges
-                    .filter(c => c.isJoined)
-                    .map(challenge => (
-                      <div key={challenge.id} className="bg-white dark:bg-fitDark-800 border border-gray-200 dark:border-fitDark-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        <div className="p-5">
-                          <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-lg font-semibold line-clamp-1">{challenge.title}</h3>
-                            <Badge variant={
-                              challenge.difficulty === 'beginner' ? 'outline' :
-                              challenge.difficulty === 'intermediate' ? 'secondary' : 'destructive'
-                            }>
-                              {challenge.difficulty.charAt(0).toUpperCase() + challenge.difficulty.slice(1)}
-                            </Badge>
-                          </div>
-                          
-                          <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
-                            {challenge.description}
-                          </p>
-                          
-                          <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Duration</span>
-                              <span className="font-medium">{challenge.duration} days</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Reward</span>
-                              <span className="font-medium text-green-600 dark:text-green-400">{challenge.xp_reward} XP</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Start Date</span>
-                              <span className="font-medium">{new Date(challenge.start_date).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-muted-foreground">Participants</span>
-                              <span className="font-medium">{challenge.participants}</span>
-                            </div>
-                          </div>
-                          
-                          {challenge.isJoined ? (
-                            <div className="space-y-3">
-                              <div className="space-y-1">
-                                <div className="flex justify-between text-sm">
-                                  <span>Progress</span>
-                                  <span className="font-medium">{challenge.progress}%</span>
-                                </div>
-                                <div className="w-full h-2 bg-gray-100 dark:bg-fitDark-700 rounded-full overflow-hidden">
-                                  <div 
-                                    className={cn(
-                                      "h-full rounded-full transition-all",
-                                      challenge.progress < 30 ? "bg-blue-500" :
-                                      challenge.progress < 70 ? "bg-yellow-500" : "bg-green-500"
-                                    )}
-                                    style={{ width: `${challenge.progress}%` }}
-                                  />
-                                </div>
-                              </div>
-                              {challenge.progress < 100 ? (
-                                <Button 
-                                  onClick={() => challenge.userChallengeId && handleUpdateProgress(challenge.userChallengeId, challenge.progress)}
-                                  className="w-full"
-                                >
-                                  Update Progress (+10%)
-                                </Button>
-                              ) : (
-                                <Button className="w-full" variant="outline" disabled>
-                                  <Award className="h-4 w-4 mr-2" />
-                                  Challenge Completed
-                                </Button>
-                              )}
-                              <ChallengeLeaderboardDialog challengeId={challenge.id} title={challenge.title} />
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <p className="text-sm text-muted-foreground">
-                                Join fee: <span className="font-medium text-red-500">{challenge.xpCost} XP</span>
-                              </p>
-                              <Button 
-                                onClick={() => handleJoinChallenge(challenge.id, challenge.xpCost)}
-                                className="w-full"
-                              >
-                                Join Challenge ({challenge.xpCost} XP)
-                              </Button>
-                              <ChallengeLeaderboardDialog challengeId={challenge.id} title={challenge.title} />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <div className="py-16 text-center">
-                  <Trophy className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-4" />
-                  <h3 className="text-xl font-medium mb-2">No Challenges Found</h3>
-                  <p className="text-muted-foreground mb-6">Try adjusting your filters or create a new challenge</p>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-    </MainLayout>
-  );
-};
-
-export default Challenges;
+                    .filter(c => c

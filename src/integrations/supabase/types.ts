@@ -41,8 +41,12 @@ export type Database = {
           difficulty: string
           duration: number
           end_date: string | null
+          first_place_reward: number | null
           id: string
+          join_price_xp: number
+          second_place_reward: number | null
           start_date: string | null
+          third_place_reward: number | null
           title: string
           xp_reward: number
         }
@@ -53,8 +57,12 @@ export type Database = {
           difficulty: string
           duration: number
           end_date?: string | null
+          first_place_reward?: number | null
           id?: string
+          join_price_xp?: number
+          second_place_reward?: number | null
           start_date?: string | null
+          third_place_reward?: number | null
           title: string
           xp_reward?: number
         }
@@ -65,8 +73,12 @@ export type Database = {
           difficulty?: string
           duration?: number
           end_date?: string | null
+          first_place_reward?: number | null
           id?: string
+          join_price_xp?: number
+          second_place_reward?: number | null
           start_date?: string | null
+          third_place_reward?: number | null
           title?: string
           xp_reward?: number
         }
@@ -141,6 +153,8 @@ export type Database = {
           id: string
           joined_at: string
           progress: number
+          rank: number | null
+          reward_claimed: boolean | null
           user_id: string
         }
         Insert: {
@@ -149,6 +163,8 @@ export type Database = {
           id?: string
           joined_at?: string
           progress?: number
+          rank?: number | null
+          reward_claimed?: boolean | null
           user_id: string
         }
         Update: {
@@ -157,6 +173,8 @@ export type Database = {
           id?: string
           joined_at?: string
           progress?: number
+          rank?: number | null
+          reward_claimed?: boolean | null
           user_id?: string
         }
         Relationships: [
@@ -233,6 +251,10 @@ export type Database = {
     Functions: {
       add_user_xp: {
         Args: { user_id_param: string; xp_amount: number }
+        Returns: undefined
+      }
+      claim_challenge_reward: {
+        Args: { challenge_id_param: string; user_id_param: string }
         Returns: undefined
       }
       deduct_user_xp: {
