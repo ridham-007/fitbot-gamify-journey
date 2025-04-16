@@ -1,22 +1,20 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
 import { supabase } from '@/integrations/supabase/client';
 import MainLayout from '@/components/layout/MainLayout';
-import ChallengeCard, { ChallengeType } from '@/components/challenges/ChallengeCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trophy, Search, Filter, Plus, Award, Crown } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { cn } from '@/lib/utils';
 
-// Challenge form schema
 const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => void }) => {
   const { user, userXp, addXp } = useUser();
   const { toast } = useToast();
@@ -34,13 +32,11 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
 
   const createChallengeMutation = useMutation({
     mutationFn: async (newChallenge: any) => {
-      // First deduct XP from the user
       await supabase.rpc('deduct_user_xp', {
         user_id_param: user?.id,
         xp_amount: xpCost
       });
 
-      // Then create the challenge
       const { data, error } = await supabase
         .from('challenges')
         .insert([newChallenge])
@@ -62,7 +58,6 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
       setIsOpen(false);
       onCreateSuccess();
       
-      // Reset form
       setTitle('');
       setDescription('');
       setDifficulty('beginner');
@@ -361,7 +356,6 @@ const Challenges = () => {
   const [filter, setFilter] = useState('all');
   const queryClient = useQueryClient();
   
-  // Fetch all challenges
   const { data: challenges, isLoading: isLoadingChallenges } = useQuery({
     queryKey: ['challenges'],
     queryFn: async () => {
@@ -375,7 +369,6 @@ const Challenges = () => {
     }
   });
   
-  // Fetch user joined challenges
   const { data: userChallenges, isLoading: isLoadingUserChallenges } = useQuery({
     queryKey: ['userChallenges', user?.id],
     queryFn: async () => {
@@ -392,12 +385,10 @@ const Challenges = () => {
     enabled: !!user
   });
   
-  // Join challenge mutation
   const joinChallengeMutation = useMutation({
     mutationFn: async ({ challengeId, xpCost }: { challengeId: string, xpCost: number }) => {
       if (!user) throw new Error('User not authenticated');
       
-      // First deduct XP from the user
       const { error: deductError } = await supabase.rpc('deduct_user_xp', {
         user_id_param: user.id,
         xp_amount: xpCost
@@ -405,7 +396,6 @@ const Challenges = () => {
       
       if (deductError) throw deductError;
       
-      // Then create user challenge entry
       const { data, error } = await supabase
         .from('user_challenges')
         .insert([
@@ -435,7 +425,6 @@ const Challenges = () => {
     }
   });
   
-  // Update progress mutation
   const updateProgressMutation = useMutation({
     mutationFn: async ({ userChallengeId, progress }: { userChallengeId: string, progress: number }) => {
       const { data, error } = await supabase
@@ -447,15 +436,12 @@ const Challenges = () => {
       
       if (error) throw error;
       
-      // If challenge is completed (100%), add XP reward
       if (progress === 100 && !data.completed_at) {
-        // Mark challenge as completed
         await supabase
           .from('user_challenges')
           .update({ completed_at: new Date().toISOString() })
           .eq('id', userChallengeId);
         
-        // Give XP reward
         await supabase.rpc('add_user_xp', {
           user_id_param: user?.id,
           xp_amount: data.challenge.xp_reward
@@ -490,7 +476,6 @@ const Challenges = () => {
     }
   });
 
-  // Join a challenge
   const handleJoinChallenge = (challengeId: string, xpCost: number) => {
     if (!user) {
       toast({
@@ -504,7 +489,6 @@ const Challenges = () => {
     joinChallengeMutation.mutate({ challengeId, xpCost });
   };
   
-  // Update challenge progress
   const handleUpdateProgress = (userChallengeId: string, currentProgress: number) => {
     let newProgress = currentProgress + 10;
     if (newProgress > 100) newProgress = 100;
@@ -512,18 +496,15 @@ const Challenges = () => {
     updateProgressMutation.mutate({ userChallengeId, progress: newProgress });
   };
   
-  // Process challenges data for display
   const processedChallenges = React.useMemo(() => {
     if (!challenges || !userChallenges) return [];
     
     return challenges.map(challenge => {
       const userChallenge = userChallenges.find(uc => uc.challenge_id === challenge.id);
       
-      // Calculate participants count (in a real app, this would be a separate query)
-      const participants = Math.floor(Math.random() * 200) + 10; // Mock data
+      const participants = Math.floor(Math.random() * 200) + 10;
       
-      // Calculate XP cost based on challenge reward
-      const xpCost = Math.floor(challenge.xp_reward * 0.2); // 20% of reward as cost
+      const xpCost = Math.floor(challenge.xp_reward * 0.2);
       
       return {
         ...challenge,
@@ -536,7 +517,6 @@ const Challenges = () => {
     });
   }, [challenges, userChallenges]);
   
-  // Filter challenges based on search and filter
   const filteredChallenges = React.useMemo(() => {
     if (!processedChallenges) return [];
     
@@ -563,7 +543,6 @@ const Challenges = () => {
     });
   }, [processedChallenges, searchQuery, filter]);
   
-  // Redirect if not logged in
   useEffect(() => {
     if (!isLoggedIn) {
       navigate('/login', { state: { from: '/challenges' } });
