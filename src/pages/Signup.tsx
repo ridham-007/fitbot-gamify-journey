@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,55 +7,103 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/contexts/UserContext';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+
+// First step validation schema
+const accountFormSchema = z.object({
+  email: z.string().email("Please enter a valid email"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string(),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+// Second step validation schema
+const profileFormSchema = z.object({
+  fitnessGoal: z.string().min(1, "Please select a fitness goal"),
+  experienceLevel: z.string().min(1, "Please select your experience level"),
+  preferredWorkoutType: z.string().min(1, "Please select a workout type"),
+});
+
+type AccountFormValues = z.infer<typeof accountFormSchema>;
+type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 const Signup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isLoggedIn } = useUser();
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    username: '',
-    fitnessGoal: '',
-    experienceLevel: '',
-    preferredWorkoutType: '',
+  const [accountData, setAccountData] = useState<AccountFormValues | null>(null);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isLoggedIn) {
+      navigate('/dashboard');
+    }
+  }, [isLoggedIn, navigate]);
+
+  // Account form (first step)
+  const accountForm = useForm<AccountFormValues>({
+    resolver: zodResolver(accountFormSchema),
+    defaultValues: {
+      email: '',
+      username: '',
+      password: '',
+      confirmPassword: '',
+    },
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  // Profile form (second step)
+  const profileForm = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      fitnessGoal: '',
+      experienceLevel: '',
+      preferredWorkoutType: '',
+    },
+  });
+
+  const handleAccountSubmit = (values: AccountFormValues) => {
+    setAccountData(values);
+    setCurrentStep(2);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (currentStep === 1) {
-      if (formData.password !== formData.confirmPassword) {
-        toast({
-          title: "Passwords don't match",
-          description: "Please make sure your passwords match.",
-          variant: "destructive",
-        });
-        return;
-      }
-      setCurrentStep(2);
-      return;
-    }
+  const handleProfileSubmit = async (values: ProfileFormValues) => {
+    if (!accountData) return;
     
     setIsLoading(true);
     
     try {
       const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
+        email: accountData.email,
+        password: accountData.password,
         options: {
           data: {
-            username: formData.username,
-            fitnessGoal: formData.fitnessGoal,
-            experienceLevel: formData.experienceLevel,
-            preferredWorkoutType: formData.preferredWorkoutType,
+            username: accountData.username,
+            fitnessGoal: values.fitnessGoal,
+            experienceLevel: values.experienceLevel,
+            preferredWorkoutType: values.preferredWorkoutType,
           },
         },
       });
@@ -72,7 +120,7 @@ const Signup = () => {
     } catch (error: any) {
       toast({
         title: "Sign up failed",
-        description: error.message,
+        description: error.message || "An error occurred during signup",
         variant: "destructive",
       });
     } finally {
@@ -96,164 +144,175 @@ const Signup = () => {
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white dark:bg-fitDark-800 py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <form className="space-y-6" onSubmit={handleSubmit}>
-              {currentStep === 1 ? (
-                <>
-                  <div>
-                    <Label htmlFor="email">
-                      Email address
-                    </Label>
-                    <div className="mt-1">
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        autoComplete="email"
-                        required
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="block w-full"
-                      />
-                    </div>
-                  </div>
+            {currentStep === 1 ? (
+              <Form {...accountForm}>
+                <form onSubmit={accountForm.handleSubmit(handleAccountSubmit)} className="space-y-6">
+                  <FormField
+                    control={accountForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email address</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="email" autoComplete="email" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <div>
-                    <Label htmlFor="username">
-                      Username
-                    </Label>
-                    <div className="mt-1">
-                      <Input
-                        id="username"
-                        name="username"
-                        type="text"
-                        autoComplete="username"
-                        required
-                        value={formData.username}
-                        onChange={handleChange}
-                        className="block w-full"
-                      />
-                    </div>
-                  </div>
+                  <FormField
+                    control={accountForm.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="text" autoComplete="username" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <div>
-                    <Label htmlFor="password">
-                      Password
-                    </Label>
-                    <div className="mt-1">
-                      <Input
-                        id="password"
-                        name="password"
-                        type="password"
-                        autoComplete="new-password"
-                        required
-                        value={formData.password}
-                        onChange={handleChange}
-                        className="block w-full"
-                      />
-                    </div>
-                  </div>
+                  <FormField
+                    control={accountForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="password" autoComplete="new-password" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <div>
-                    <Label htmlFor="confirmPassword">
-                      Confirm Password
-                    </Label>
-                    <div className="mt-1">
-                      <Input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type="password"
-                        autoComplete="new-password"
-                        required
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        className="block w-full"
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <Label htmlFor="fitnessGoal">
-                      What's your primary fitness goal?
-                    </Label>
-                    <div className="mt-1">
-                      <select
-                        id="fitnessGoal"
-                        name="fitnessGoal"
-                        required
-                        value={formData.fitnessGoal}
-                        onChange={handleChange}
-                        className="block w-full rounded-md border-gray-300 dark:border-fitDark-600 bg-white dark:bg-fitDark-700 shadow-sm focus:border-fitPurple-500 focus:ring-fitPurple-500 h-10 px-3"
-                      >
-                        <option value="">Select a goal</option>
-                        <option value="weight-loss">Lose weight</option>
-                        <option value="muscle-gain">Build muscle</option>
-                        <option value="endurance">Improve endurance</option>
-                        <option value="flexibility">Increase flexibility</option>
-                        <option value="general-fitness">General fitness</option>
-                      </select>
-                    </div>
-                  </div>
+                  <FormField
+                    control={accountForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm Password</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="password" autoComplete="new-password" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <div>
-                    <Label htmlFor="experienceLevel">
-                      What's your fitness experience level?
-                    </Label>
-                    <div className="mt-1">
-                      <select
-                        id="experienceLevel"
-                        name="experienceLevel"
-                        required
-                        value={formData.experienceLevel}
-                        onChange={handleChange}
-                        className="block w-full rounded-md border-gray-300 dark:border-fitDark-600 bg-white dark:bg-fitDark-700 shadow-sm focus:border-fitPurple-500 focus:ring-fitPurple-500 h-10 px-3"
-                      >
-                        <option value="">Select experience level</option>
-                        <option value="beginner">Beginner</option>
-                        <option value="intermediate">Intermediate</option>
-                        <option value="advanced">Advanced</option>
-                      </select>
-                    </div>
-                  </div>
+                  <Button type="submit" className="w-full">
+                    Continue
+                  </Button>
+                </form>
+              </Form>
+            ) : (
+              <Form {...profileForm}>
+                <form onSubmit={profileForm.handleSubmit(handleProfileSubmit)} className="space-y-6">
+                  <FormField
+                    control={profileForm.control}
+                    name="fitnessGoal"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>What's your primary fitness goal?</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a goal" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="weight-loss">Lose weight</SelectItem>
+                            <SelectItem value="muscle-gain">Build muscle</SelectItem>
+                            <SelectItem value="endurance">Improve endurance</SelectItem>
+                            <SelectItem value="flexibility">Increase flexibility</SelectItem>
+                            <SelectItem value="general-fitness">General fitness</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <div>
-                    <Label htmlFor="preferredWorkoutType">
-                      What type of workouts do you prefer?
-                    </Label>
-                    <div className="mt-1">
-                      <select
-                        id="preferredWorkoutType"
-                        name="preferredWorkoutType"
-                        required
-                        value={formData.preferredWorkoutType}
-                        onChange={handleChange}
-                        className="block w-full rounded-md border-gray-300 dark:border-fitDark-600 bg-white dark:bg-fitDark-700 shadow-sm focus:border-fitPurple-500 focus:ring-fitPurple-500 h-10 px-3"
-                      >
-                        <option value="">Select workout type</option>
-                        <option value="cardio">Cardio</option>
-                        <option value="strength">Strength Training</option>
-                        <option value="hiit">HIIT</option>
-                        <option value="yoga">Yoga</option>
-                        <option value="mixed">Mixed</option>
-                      </select>
-                    </div>
-                  </div>
-                </>
-              )}
+                  <FormField
+                    control={profileForm.control}
+                    name="experienceLevel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>What's your fitness experience level?</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select experience level" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="beginner">Beginner</SelectItem>
+                            <SelectItem value="intermediate">Intermediate</SelectItem>
+                            <SelectItem value="advanced">Advanced</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {currentStep === 1 
-                    ? 'Continue' 
-                    : isLoading ? 'Creating account...' : 'Create account'}
-                </Button>
-              </div>
-            </form>
+                  <FormField
+                    control={profileForm.control}
+                    name="preferredWorkoutType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>What type of workouts do you prefer?</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select workout type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="cardio">Cardio</SelectItem>
+                            <SelectItem value="strength">Strength Training</SelectItem>
+                            <SelectItem value="hiit">HIIT</SelectItem>
+                            <SelectItem value="yoga">Yoga</SelectItem>
+                            <SelectItem value="mixed">Mixed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex space-x-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => setCurrentStep(1)}
+                    >
+                      Back
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      className="flex-1"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Creating account...' : 'Create account'}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            )}
 
             {currentStep === 1 && (
               <>
@@ -273,6 +332,7 @@ const Signup = () => {
                     <Button
                       variant="outline"
                       className="w-full"
+                      type="button"
                       onClick={() => {
                         toast({
                           title: "Google Sign-up",
@@ -301,16 +361,6 @@ const Signup = () => {
                   </Link>
                 </p>
               </>
-            )}
-
-            {currentStep === 2 && (
-              <button
-                type="button"
-                className="mt-4 w-full text-center text-sm text-fitPurple-600 hover:text-fitPurple-500 dark:text-fitPurple-400 dark:hover:text-fitPurple-300"
-                onClick={() => setCurrentStep(1)}
-              >
-                Back to account details
-              </button>
             )}
           </div>
         </div>

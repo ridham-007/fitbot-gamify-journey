@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
   Menu, 
@@ -8,19 +9,49 @@ import {
   Dumbbell, 
   Brain, 
   BarChart2, 
-  Trophy 
+  Trophy,
+  LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useUser } from '@/contexts/UserContext';
+import { useToast } from '@/components/ui/use-toast';
 
 type NavbarProps = {
   isLoggedIn?: boolean;
 };
 
-const Navbar = ({ isLoggedIn = false }: NavbarProps) => {
+const Navbar = ({ isLoggedIn: isLoggedInProp }: NavbarProps) => {
+  const { isLoggedIn: isAuthLoggedIn, logout } = useUser();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Use context value if prop not provided
+  const isLoggedIn = isLoggedInProp !== undefined ? isLoggedInProp : isAuthLoggedIn;
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
+      
+      navigate('/');
+    } catch (error: any) {
+      toast({
+        title: "Logout failed",
+        description: error.message || "An error occurred during logout",
+        variant: "destructive",
+      });
+    }
+    
+    setIsOpen(false);
   };
 
   return (
@@ -51,6 +82,15 @@ const Navbar = ({ isLoggedIn = false }: NavbarProps) => {
                 <Link to="/profile" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
                   Profile
                 </Link>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="ml-4 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
               </>
             ) : (
               <>
@@ -63,17 +103,15 @@ const Navbar = ({ isLoggedIn = false }: NavbarProps) => {
                 <Link to="/about" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
                   About
                 </Link>
+                <div className="flex items-center ml-4 space-x-2">
+                  <Link to="/login">
+                    <Button variant="outline" size="sm">Login</Button>
+                  </Link>
+                  <Link to="/signup">
+                    <Button size="sm">Sign Up</Button>
+                  </Link>
+                </div>
               </>
-            )}
-            {!isLoggedIn && (
-              <div className="flex items-center ml-4 space-x-2">
-                <Link to="/login">
-                  <Button variant="outline" size="sm">Login</Button>
-                </Link>
-                <Link to="/signup">
-                  <Button size="sm">Sign Up</Button>
-                </Link>
-              </div>
             )}
           </div>
           
@@ -139,15 +177,20 @@ const Navbar = ({ isLoggedIn = false }: NavbarProps) => {
                 Profile
               </Link>
               <Link 
-                to="/achievements" 
+                to="/challenges" 
                 className="flex items-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-fitDark-800 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-base font-medium"
                 onClick={() => setIsOpen(false)}
               >
                 <Trophy className="mr-2 h-5 w-5" />
-                Achievements
+                Challenges
               </Link>
               <div className="pt-4">
-                <Button className="w-full" variant="outline">
+                <Button 
+                  className="w-full flex items-center justify-center" 
+                  variant="outline"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
                   Logout
                 </Button>
               </div>
