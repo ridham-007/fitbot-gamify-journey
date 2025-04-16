@@ -1,6 +1,5 @@
-
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
   Menu, 
@@ -24,11 +23,20 @@ type NavbarProps = {
 const Navbar = ({ isLoggedIn: isLoggedInProp }: NavbarProps) => {
   const { isLoggedIn: isAuthLoggedIn, logout } = useUser();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   
   // Use context value if prop not provided
   const isLoggedIn = isLoggedInProp !== undefined ? isLoggedInProp : isAuthLoggedIn;
+
+  // Redirect to dashboard if logged in and on homepage, login, or signup pages
+  useEffect(() => {
+    const publicOnlyPaths = ['/', '/login', '/signup'];
+    if (isLoggedIn && publicOnlyPaths.includes(location.pathname)) {
+      navigate('/dashboard');
+    }
+  }, [isLoggedIn, location.pathname, navigate]);
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
