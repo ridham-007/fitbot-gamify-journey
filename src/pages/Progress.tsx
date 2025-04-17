@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,43 +7,219 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import MainLayout from '@/components/layout/MainLayout';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Calendar, Trophy, Flame, Clock, Dumbbell, BarChart2, Zap, Share2 } from 'lucide-react';
+import { Calendar, Trophy, Flame, Clock, Dumbbell, BarChart2, Zap, Share2, Loader2 } from 'lucide-react';
+import { useUser } from '@/contexts/UserContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
-// Mock data
-const weeklyData = [
-  { name: 'Mon', xp: 120, workouts: 1, minutes: 30 },
-  { name: 'Tue', xp: 150, workouts: 1, minutes: 35 },
-  { name: 'Wed', xp: 0, workouts: 0, minutes: 0 },
-  { name: 'Thu', xp: 200, workouts: 2, minutes: 45 },
-  { name: 'Fri', xp: 180, workouts: 1, minutes: 40 },
-  { name: 'Sat', xp: 0, workouts: 0, minutes: 0 },
-  { name: 'Sun', xp: 250, workouts: 2, minutes: 60 },
-];
+// Fetch weekly progress data from the last 7 days
+const fetchWeeklyData = async (userId) => {
+  if (!userId) return [];
+  
+  // Get the date 7 days ago
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+  
+  const { data, error } = await supabase
+    .from('daily_progress')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('date', sevenDaysAgo.toISOString().split('T')[0])
+    .order('date', { ascending: true });
+    
+  if (error) {
+    throw new Error(error.message);
+  }
+  
+  // Format the data
+  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const today = new Date();
+  
+  // Initialize the past 7 days with 0 values
+  const weeklyData = [];
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    weeklyData.push({
+      date: date.toISOString().split('T')[0],
+      name: daysOfWeek[date.getDay()],
+      xp: 0,
+      workouts: 0,
+      minutes: 0
+    });
+  }
+  
+  // Fill in the actual data
+  data.forEach(day => {
+    const index = weeklyData.findIndex(item => item.date === day.date);
+    if (index !== -1) {
+      weeklyData[index].xp = day.xp_earned;
+      weeklyData[index].workouts = day.workouts_completed;
+      weeklyData[index].minutes = day.minutes_active;
+    }
+  });
+  
+  return weeklyData;
+};
 
-const monthlyData = [
-  { name: 'W1', xp: 700, workouts: 5, minutes: 150 },
-  { name: 'W2', xp: 900, workouts: 6, minutes: 180 },
-  { name: 'W3', xp: 800, workouts: 5, minutes: 165 },
-  { name: 'W4', xp: 950, workouts: 7, minutes: 210 },
-];
+// Fetch monthly progress data from the last 4 weeks
+const fetchMonthlyData = async (userId) => {
+  if (!userId) return [];
+  
+  // Get the date 28 days ago
+  const twentyEightDaysAgo = new Date();
+  twentyEightDaysAgo.setDate(twentyEightDaysAgo.getDate() - 27);
+  
+  const { data, error } = await supabase
+    .from('daily_progress')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('date', twentyEightDaysAgo.toISOString().split('T')[0])
+    .order('date', { ascending: true });
+    
+  if (error) {
+    throw new Error(error.message);
+  }
+  
+  // Group data by week
+  const monthlyData = [];
+  for (let i = 0; i < 4; i++) {
+    monthlyData.push({
+      name: `W${i+1}`,
+      xp: 0,
+      workouts: 0,
+      minutes: 0
+    });
+  }
+  
+  // Fill in the actual data
+  data.forEach(day => {
+    const date = new Date(day.date);
+    const daysSinceStart = Math.floor((date - twentyEightDaysAgo) / (1000 * 60 * 60 * 24));
+    const weekIndex = Math.min(3, Math.floor(daysSinceStart / 7));
+    
+    monthlyData[weekIndex].xp += day.xp_earned;
+    monthlyData[weekIndex].workouts += day.workouts_completed;
+    monthlyData[weekIndex].minutes += day.minutes_active;
+  });
+  
+  return monthlyData;
+};
 
-const workoutHistory = [
-  { id: 1, date: '2023-04-14', name: 'Full Body HIIT', duration: 30, xp: 150, completed: true },
-  { id: 2, date: '2023-04-13', name: 'Upper Body Strength', duration: 45, xp: 200, completed: true },
-  { id: 3, date: '2023-04-11', name: 'Core & Cardio', duration: 25, xp: 120, completed: true },
-  { id: 4, date: '2023-04-10', name: 'Leg Day Challenge', duration: 40, xp: 180, completed: true },
-  { id: 5, date: '2023-04-08', name: 'Recovery Stretching', duration: 20, xp: 80, completed: true },
-];
+// Fetch workout history
+const fetchWorkoutHistory = async (userId) => {
+  if (!userId) return [];
+  
+  const { data, error } = await supabase
+    .from('workouts')
+    .select('*')
+    .eq('user_id', userId)
+    .order('completed_at', { ascending: false })
+    .limit(10);
+    
+  if (error) {
+    throw new Error(error.message);
+  }
+  
+  return data.map(workout => ({
+    id: workout.id,
+    date: workout.completed_at,
+    name: workout.workout_type,
+    duration: workout.duration,
+    xp: workout.xp_earned || 0,
+    completed: true
+  }));
+};
 
-const recentAchievements = [
-  { id: 1, name: 'First Workout', date: '2023-03-25', xp: 50 },
-  { id: 2, name: '3-Day Streak', date: '2023-03-29', xp: 100 },
-  { id: 3, name: 'Cardio Enthusiast', date: '2023-04-05', xp: 150 },
-  { id: 4, name: 'Level 3 Unlocked', date: '2023-04-09', xp: 200 },
-];
+// Fetch user's achievements
+const fetchUserAchievements = async (userId) => {
+  if (!userId) return [];
+  
+  const { data, error } = await supabase
+    .from('user_achievements')
+    .select(`
+      id,
+      earned_at,
+      achievements (
+        id,
+        name,
+        description,
+        icon,
+        xp_reward
+      )
+    `)
+    .eq('user_id', userId)
+    .order('earned_at', { ascending: false })
+    .limit(4);
+    
+  if (error) {
+    throw new Error(error.message);
+  }
+  
+  return data.map(item => ({
+    id: item.achievements.id,
+    name: item.achievements.name,
+    date: item.earned_at,
+    xp: item.achievements.xp_reward
+  }));
+};
+
+// Fetch user stats
+const fetchUserStats = async (userId) => {
+  if (!userId) return null;
+  
+  const { data, error } = await supabase
+    .from('user_stats')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+    
+  if (error) {
+    throw new Error(error.message);
+  }
+  
+  return data;
+};
 
 const Progress = () => {
   const navigate = useNavigate();
+  const { user } = useUser();
+
+  // React Query hooks for data fetching
+  const { data: weeklyData = [], isLoading: weeklyLoading } = useQuery({
+    queryKey: ['weeklyProgress', user?.id],
+    queryFn: () => fetchWeeklyData(user?.id),
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const { data: monthlyData = [], isLoading: monthlyLoading } = useQuery({
+    queryKey: ['monthlyProgress', user?.id],
+    queryFn: () => fetchMonthlyData(user?.id),
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const { data: workoutHistory = [], isLoading: historyLoading } = useQuery({
+    queryKey: ['workoutHistory', user?.id],
+    queryFn: () => fetchWorkoutHistory(user?.id),
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const { data: recentAchievements = [], isLoading: achievementsLoading } = useQuery({
+    queryKey: ['recentAchievements', user?.id],
+    queryFn: () => fetchUserAchievements(user?.id),
+    enabled: !!user?.id,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+
+  const { data: userStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['userStats', user?.id],
+    queryFn: () => fetchUserStats(user?.id),
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   useEffect(() => {
     // Check if user is logged in
@@ -54,10 +230,23 @@ const Progress = () => {
   }, [navigate]);
 
   // Format date string to readable format
-  const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  const formatDate = (dateString) => {
+    const options = { month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString('en-US', options);
   };
+
+  if (weeklyLoading || monthlyLoading || historyLoading || achievementsLoading || statsLoading) {
+    return (
+      <MainLayout isLoggedIn={true}>
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">Loading your progress data...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout isLoggedIn={true}>
@@ -91,7 +280,7 @@ const Progress = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total XP</p>
-                    <h3 className="text-2xl font-bold text-fitDark-900 dark:text-white mt-1">2,850</h3>
+                    <h3 className="text-2xl font-bold text-fitDark-900 dark:text-white mt-1">{userStats?.xp || 0}</h3>
                   </div>
                   <div className="bg-fitPurple-100 dark:bg-fitPurple-900/30 p-2 rounded-lg">
                     <Trophy className="h-5 w-5 text-fitPurple-600 dark:text-fitPurple-400" />
@@ -99,7 +288,7 @@ const Progress = () => {
                 </div>
                 <div className="text-xs text-green-600 dark:text-green-400 flex items-center mt-2">
                   <Zap className="h-3 w-3 mr-1" />
-                  <span>+450 XP this week</span>
+                  <span>+{weeklyData.reduce((sum, day) => sum + day.xp, 0)} XP this week</span>
                 </div>
               </CardContent>
             </Card>
@@ -109,7 +298,7 @@ const Progress = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Workouts</p>
-                    <h3 className="text-2xl font-bold text-fitDark-900 dark:text-white mt-1">21</h3>
+                    <h3 className="text-2xl font-bold text-fitDark-900 dark:text-white mt-1">{userStats?.workouts_completed || 0}</h3>
                   </div>
                   <div className="bg-fitGreen-100 dark:bg-fitGreen-900/30 p-2 rounded-lg">
                     <Dumbbell className="h-5 w-5 text-fitGreen-600 dark:text-fitGreen-400" />
@@ -117,7 +306,7 @@ const Progress = () => {
                 </div>
                 <div className="text-xs text-green-600 dark:text-green-400 flex items-center mt-2">
                   <Zap className="h-3 w-3 mr-1" />
-                  <span>5 workouts this week</span>
+                  <span>{weeklyData.reduce((sum, day) => sum + day.workouts, 0)} workouts this week</span>
                 </div>
               </CardContent>
             </Card>
@@ -127,7 +316,9 @@ const Progress = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Minutes</p>
-                    <h3 className="text-2xl font-bold text-fitDark-900 dark:text-white mt-1">705</h3>
+                    <h3 className="text-2xl font-bold text-fitDark-900 dark:text-white mt-1">
+                      {weeklyData.reduce((sum, day) => sum + day.minutes, 0) + (monthlyData.reduce((sum, week) => sum + week.minutes, 0) - weeklyData.reduce((sum, day) => sum + day.minutes, 0))}
+                    </h3>
                   </div>
                   <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
                     <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -135,7 +326,7 @@ const Progress = () => {
                 </div>
                 <div className="text-xs text-green-600 dark:text-green-400 flex items-center mt-2">
                   <Zap className="h-3 w-3 mr-1" />
-                  <span>210 minutes this week</span>
+                  <span>{weeklyData.reduce((sum, day) => sum + day.minutes, 0)} minutes this week</span>
                 </div>
               </CardContent>
             </Card>
@@ -145,7 +336,10 @@ const Progress = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Calories Burned</p>
-                    <h3 className="text-2xl font-bold text-fitDark-900 dark:text-white mt-1">6,240</h3>
+                    <h3 className="text-2xl font-bold text-fitDark-900 dark:text-white mt-1">
+                      {/* Estimate calories as 10 per active minute */}
+                      {(weeklyData.reduce((sum, day) => sum + day.minutes, 0) + (monthlyData.reduce((sum, week) => sum + week.minutes, 0) - weeklyData.reduce((sum, day) => sum + day.minutes, 0))) * 10}
+                    </h3>
                   </div>
                   <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-lg">
                     <Flame className="h-5 w-5 text-red-600 dark:text-red-400" />
@@ -153,7 +347,7 @@ const Progress = () => {
                 </div>
                 <div className="text-xs text-green-600 dark:text-green-400 flex items-center mt-2">
                   <Zap className="h-3 w-3 mr-1" />
-                  <span>1,890 calories this week</span>
+                  <span>{weeklyData.reduce((sum, day) => sum + day.minutes, 0) * 10} calories this week</span>
                 </div>
               </CardContent>
             </Card>
@@ -240,25 +434,32 @@ const Progress = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {recentAchievements.map((achievement) => (
-                    <div key={achievement.id} className="flex items-center p-3 bg-gray-50 dark:bg-fitDark-900 rounded-lg">
-                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-fitPurple-100 dark:bg-fitPurple-900/30 flex items-center justify-center mr-3">
-                        <Trophy className="h-5 w-5 text-fitPurple-600 dark:text-fitPurple-400" />
+                  {recentAchievements.length > 0 ? (
+                    recentAchievements.map((achievement) => (
+                      <div key={achievement.id} className="flex items-center p-3 bg-gray-50 dark:bg-fitDark-900 rounded-lg">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-fitPurple-100 dark:bg-fitPurple-900/30 flex items-center justify-center mr-3">
+                          <Trophy className="h-5 w-5 text-fitPurple-600 dark:text-fitPurple-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-fitDark-900 dark:text-white truncate">
+                            {achievement.name}
+                          </h4>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {formatDate(achievement.date)}
+                          </p>
+                        </div>
+                        <div className="flex items-center bg-fitPurple-100 dark:bg-fitPurple-900/30 px-2 py-1 rounded text-xs text-fitPurple-700 dark:text-fitPurple-300 font-medium">
+                          +{achievement.xp} XP
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-fitDark-900 dark:text-white truncate">
-                          {achievement.name}
-                        </h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {achievement.date}
-                        </p>
-                      </div>
-                      <div className="flex items-center bg-fitPurple-100 dark:bg-fitPurple-900/30 px-2 py-1 rounded text-xs text-fitPurple-700 dark:text-fitPurple-300 font-medium">
-                        +{achievement.xp} XP
-                      </div>
+                    ))
+                  ) : (
+                    // Show sample achievements if none are found
+                    <div className="text-center py-4">
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">Complete workouts to earn achievements!</p>
                     </div>
-                  ))}
-                  <Button variant="ghost" className="w-full text-fitPurple-600 hover:text-fitPurple-700 hover:bg-fitPurple-50 dark:text-fitPurple-400 dark:hover:text-fitPurple-300 dark:hover:bg-fitPurple-900/20">
+                  )}
+                  <Button variant="ghost" className="w-full text-fitPurple-600 hover:text-fitPurple-700 hover:bg-fitPurple-50 dark:text-fitPurple-400 dark:hover:text-fitPurple-300 dark:hover:bg-fitPurple-900/20" onClick={() => navigate('/profile')}>
                     View all achievements
                   </Button>
                 </div>
@@ -275,78 +476,91 @@ const Progress = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-fitDark-700">
-                      <th className="pb-3 font-medium">Date</th>
-                      <th className="pb-3 font-medium">Workout</th>
-                      <th className="pb-3 font-medium">Duration</th>
-                      <th className="pb-3 font-medium">XP Earned</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {workoutHistory.map((workout) => (
-                      <tr key={workout.id} className="border-b border-gray-100 dark:border-fitDark-700 hover:bg-gray-50 dark:hover:bg-fitDark-900/50">
-                        <td className="py-4 text-sm text-gray-600 dark:text-gray-300">
-                          {formatDate(workout.date)}
-                        </td>
-                        <td className="py-4">
-                          <div className="flex items-center">
-                            <Dumbbell className="h-4 w-4 text-fitPurple-500 mr-2" />
-                            <span className="text-sm font-medium text-fitDark-900 dark:text-white">
-                              {workout.name}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-4 text-sm text-gray-600 dark:text-gray-300">
-                          {workout.duration} min
-                        </td>
-                        <td className="py-4">
-                          <div className="inline-flex items-center bg-fitPurple-100 dark:bg-fitPurple-900/30 px-2 py-1 rounded text-xs text-fitPurple-700 dark:text-fitPurple-300 font-medium">
-                            +{workout.xp} XP
-                          </div>
-                        </td>
-                        <td className="py-4">
-                          {workout.completed ? (
-                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                              Completed
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                              In Progress
-                            </Badge>
-                          )}
-                        </td>
+              {workoutHistory.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-fitDark-700">
+                        <th className="pb-3 font-medium">Date</th>
+                        <th className="pb-3 font-medium">Workout</th>
+                        <th className="pb-3 font-medium">Duration</th>
+                        <th className="pb-3 font-medium">XP Earned</th>
+                        <th className="pb-3 font-medium">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-4 flex justify-center">
-                <Button variant="outline" className="text-fitPurple-600 hover:text-fitPurple-700 hover:bg-fitPurple-50 dark:text-fitPurple-400 dark:hover:text-fitPurple-300 dark:hover:bg-fitPurple-900/20">
-                  Load more
-                </Button>
-              </div>
+                    </thead>
+                    <tbody>
+                      {workoutHistory.map((workout) => (
+                        <tr key={workout.id} className="border-b border-gray-100 dark:border-fitDark-700 hover:bg-gray-50 dark:hover:bg-fitDark-900/50">
+                          <td className="py-4 text-sm text-gray-600 dark:text-gray-300">
+                            {formatDate(workout.date)}
+                          </td>
+                          <td className="py-4">
+                            <div className="flex items-center">
+                              <Dumbbell className="h-4 w-4 text-fitPurple-500 mr-2" />
+                              <span className="text-sm font-medium text-fitDark-900 dark:text-white">
+                                {workout.name}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-4 text-sm text-gray-600 dark:text-gray-300">
+                            {workout.duration} min
+                          </td>
+                          <td className="py-4">
+                            <div className="inline-flex items-center bg-fitPurple-100 dark:bg-fitPurple-900/30 px-2 py-1 rounded text-xs text-fitPurple-700 dark:text-fitPurple-300 font-medium">
+                              +{workout.xp} XP
+                            </div>
+                          </td>
+                          <td className="py-4">
+                            {workout.completed ? (
+                              <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                Completed
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                                In Progress
+                              </Badge>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Dumbbell className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">No workouts yet</h3>
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">Complete your first workout to see your history</p>
+                  <Button onClick={() => navigate('/dashboard')} variant="default">
+                    Start a Workout
+                  </Button>
+                </div>
+              )}
+              {workoutHistory.length > 0 && (
+                <div className="mt-4 flex justify-center">
+                  <Button variant="outline" className="text-fitPurple-600 hover:text-fitPurple-700 hover:bg-fitPurple-50 dark:text-fitPurple-400 dark:hover:text-fitPurple-300 dark:hover:bg-fitPurple-900/20">
+                    Load more
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Quick Actions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Button variant="outline" className="h-auto py-6 flex-col space-y-2">
+            <Button variant="outline" className="h-auto py-6 flex-col space-y-2" onClick={() => navigate('/dashboard')}>
               <Dumbbell className="h-6 w-6 mb-1 text-fitPurple-600 dark:text-fitPurple-400" />
               <span className="font-medium text-fitDark-900 dark:text-white">Start Today's Workout</span>
               <p className="text-xs text-gray-500 dark:text-gray-400 font-normal">Continue your fitness journey</p>
             </Button>
             
-            <Button variant="outline" className="h-auto py-6 flex-col space-y-2">
+            <Button variant="outline" className="h-auto py-6 flex-col space-y-2" onClick={() => navigate('/challenges')}>
               <Trophy className="h-6 w-6 mb-1 text-yellow-500" />
               <span className="font-medium text-fitDark-900 dark:text-white">View Leaderboard</span>
               <p className="text-xs text-gray-500 dark:text-gray-400 font-normal">See how you rank against others</p>
             </Button>
             
-            <Button variant="outline" className="h-auto py-6 flex-col space-y-2">
+            <Button variant="outline" className="h-auto py-6 flex-col space-y-2" onClick={() => navigate('/settings')}>
               <BarChart2 className="h-6 w-6 mb-1 text-fitGreen-600 dark:text-fitGreen-400" />
               <span className="font-medium text-fitDark-900 dark:text-white">Set New Goals</span>
               <p className="text-xs text-gray-500 dark:text-gray-400 font-normal">Update your fitness objectives</p>

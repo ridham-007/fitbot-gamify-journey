@@ -6,11 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
+import { useUser } from '@/contexts/UserContext';
 import MainLayout from '@/components/layout/MainLayout';
-import { Play, CheckCircle, Clock, Trophy, Dumbbell, ChevronRight, Award, Heart, Medal, Flame, BarChart2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Play, CheckCircle, Clock, Trophy, Dumbbell, ChevronRight, Award, Heart, Medal, Flame, BarChart2, Loader2 } from 'lucide-react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 
-// Mock data
-const mockWorkout = {
+// Mock workout structure
+const defaultWorkout = {
   title: "Full Body HIIT",
   description: "High intensity interval training targeting all major muscle groups",
   duration: 30,
@@ -25,24 +28,120 @@ const mockWorkout = {
   ]
 };
 
-const achievements = [
-  { id: 1, name: "First Workout", description: "Complete your first workout", icon: <Medal />, completed: true },
-  { id: 2, name: "3-Day Streak", description: "Work out for 3 consecutive days", icon: <Flame />, completed: true },
-  { id: 3, name: "Level 5 Reached", description: "Reach fitness level 5", icon: <Award />, completed: false },
-  { id: 4, name: "Cardio Master", description: "Complete 10 cardio workouts", icon: <Heart />, completed: false },
-];
+// Get the user's current achievements
+const fetchUserAchievements = async (userId) => {
+  if (!userId) return [];
+  
+  const { data, error } = await supabase
+    .from('user_achievements')
+    .select(`
+      id,
+      earned_at,
+      achievements (
+        id,
+        name,
+        description,
+        icon,
+        xp_reward
+      )
+    `)
+    .eq('user_id', userId);
+    
+  if (error) {
+    throw new Error(error.message);
+  }
+  
+  return data.map(item => ({
+    id: item.achievements.id,
+    name: item.achievements.name,
+    description: item.achievements.description,
+    icon: item.achievements.icon,
+    xp_reward: item.achievements.xp_reward,
+    earned_at: item.earned_at,
+    completed: true
+  }));
+};
+
+// Get user stats
+const fetchUserStats = async (userId) => {
+  if (!userId) return null;
+  
+  const { data, error } = await supabase
+    .from('user_stats')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+    
+  if (error) {
+    throw new Error(error.message);
+  }
+  
+  return data;
+};
+
+// Complete a workout and save it to the database
+const completeWorkout = async ({ userId, workout, exercises, xpEarned }) => {
+  const { data, error } = await supabase
+    .from('workouts')
+    .insert({
+      user_id: userId,
+      workout_type: workout.title,
+      duration: workout.duration,
+      calories_burned: workout.caloriesBurn,
+      exercise_data: exercises,
+      xp_earned: xpEarned
+    });
+    
+  if (error) {
+    throw new Error(error.message);
+  }
+  
+  return data;
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [userLevel, setUserLevel] = useState(4);
-  const [xpProgress, setXpProgress] = useState(75);
-  const [streak, setStreak] = useState(2);
-  const [totalXp, setTotalXp] = useState(1450);
+  const { user } = useUser();
   const [isWorkoutStarted, setIsWorkoutStarted] = useState(false);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [timer, setTimer] = useState(0);
   const [isResting, setIsResting] = useState(false);
+  const [mockWorkout, setMockWorkout] = useState(defaultWorkout);
+  
+  // Use React Query to fetch user stats and achievements
+  const { data: userStats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
+    queryKey: ['userStats', user?.id],
+    queryFn: () => fetchUserStats(user?.id),
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+  
+  const { data: achievements = [], isLoading: achievementsLoading } = useQuery({
+    queryKey: ['userAchievements', user?.id],
+    queryFn: () => fetchUserAchievements(user?.id),
+    enabled: !!user?.id,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+  
+  // For when we complete a workout
+  const workoutMutation = useMutation({
+    mutationFn: completeWorkout,
+    onSuccess: () => {
+      toast({
+        title: "Workout Completed!",
+        description: "Great job! Your progress has been saved.",
+      });
+      refetchStats();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to save workout: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
 
   useEffect(() => {
     // Check if user is logged in
@@ -53,7 +152,7 @@ const Dashboard = () => {
   }, [navigate]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval = null;
     
     if (isWorkoutStarted) {
       interval = setInterval(() => {
@@ -69,30 +168,25 @@ const Dashboard = () => {
                 setCurrentExerciseIndex(prev => prev + 1);
               } else {
                 // Workout completed
-                clearInterval(interval!);
+                clearInterval(interval);
                 setIsWorkoutStarted(false);
                 
                 // Mark exercise as completed
                 const updatedExercises = [...mockWorkout.exercises];
                 updatedExercises[currentExerciseIndex].completed = true;
                 
-                // Show completion toast and update XP
-                toast({
-                  title: "Workout Completed!",
-                  description: "Great job! You've earned 100 XP.",
-                });
+                // Calculate XP earned (based on duration and difficulty)
+                const xpEarned = mockWorkout.duration * 3; // Simple XP calculation
                 
-                setTotalXp(prev => prev + 100);
-                setXpProgress(prev => (prev + 25) % 100);
-                if (xpProgress + 25 >= 100) {
-                  setUserLevel(prev => prev + 1);
-                  toast({
-                    title: "Level Up!",
-                    description: `Congratulations! You've reached Level ${userLevel + 1}.`,
-                    variant: "default",
+                // Save workout to database if user is logged in
+                if (user && user.id) {
+                  workoutMutation.mutate({
+                    userId: user.id,
+                    workout: mockWorkout,
+                    exercises: updatedExercises,
+                    xpEarned
                   });
                 }
-                setStreak(prev => prev + 1);
               }
               setIsResting(false);
             } else {
@@ -102,6 +196,10 @@ const Dashboard = () => {
               // Mark exercise as completed
               const updatedExercises = [...mockWorkout.exercises];
               updatedExercises[currentExerciseIndex].completed = true;
+              setMockWorkout(prev => ({
+                ...prev,
+                exercises: updatedExercises
+              }));
             }
             return 0;
           }
@@ -113,16 +211,19 @@ const Dashboard = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isWorkoutStarted, currentExerciseIndex, isResting, toast, userLevel, xpProgress]);
+  }, [isWorkoutStarted, currentExerciseIndex, isResting, mockWorkout, user, workoutMutation]);
 
   const startWorkout = () => {
+    // Reset workout state
+    const resetExercises = mockWorkout.exercises.map(ex => ({...ex, completed: false}));
+    setMockWorkout(prev => ({...prev, exercises: resetExercises}));
     setIsWorkoutStarted(true);
     setCurrentExerciseIndex(0);
     setTimer(0);
     setIsResting(false);
   };
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
@@ -135,6 +236,19 @@ const Dashboard = () => {
     return (timer / duration) * 100;
   };
 
+  if (statsLoading || achievementsLoading) {
+    return (
+      <MainLayout isLoggedIn={true}>
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">Loading your dashboard...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout isLoggedIn={true}>
       <div className="bg-gray-50 dark:bg-fitDark-900 min-h-screen py-8">
@@ -142,7 +256,7 @@ const Dashboard = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-fitDark-900 dark:text-white">
-                Welcome back, Fitness Warrior
+                Welcome back, {userStats?.username || "Fitness Warrior"}
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
                 Ready for today's workout challenge?
@@ -153,21 +267,21 @@ const Dashboard = () => {
                 <Trophy className="h-5 w-5 text-yellow-500 mr-2" />
                 <div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">Streak</div>
-                  <div className="font-semibold text-fitDark-900 dark:text-white">{streak} days</div>
+                  <div className="font-semibold text-fitDark-900 dark:text-white">{userStats?.streak || 0} days</div>
                 </div>
               </div>
               <div className="bg-white dark:bg-fitDark-800 rounded-lg shadow-sm px-4 py-2 flex items-center">
                 <Award className="h-5 w-5 text-fitPurple-500 mr-2" />
                 <div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">Level</div>
-                  <div className="font-semibold text-fitDark-900 dark:text-white">{userLevel}</div>
+                  <div className="font-semibold text-fitDark-900 dark:text-white">{userStats?.level || 1}</div>
                 </div>
               </div>
               <div className="bg-white dark:bg-fitDark-800 rounded-lg shadow-sm px-4 py-2 flex items-center">
                 <Flame className="h-5 w-5 text-fitGreen-500 mr-2" />
                 <div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">XP</div>
-                  <div className="font-semibold text-fitDark-900 dark:text-white">{totalXp}</div>
+                  <div className="font-semibold text-fitDark-900 dark:text-white">{userStats?.xp || 0}</div>
                 </div>
               </div>
             </div>
@@ -286,15 +400,18 @@ const Dashboard = () => {
                   <div className="mb-2 flex justify-between items-center">
                     <div className="flex items-center">
                       <div className="w-8 h-8 rounded-full bg-fitPurple-100 dark:bg-fitPurple-900 flex items-center justify-center text-fitPurple-600 dark:text-fitPurple-400 mr-2">
-                        {userLevel}
+                        {userStats?.level || 1}
                       </div>
-                      <span className="font-medium text-fitDark-900 dark:text-white">Fitness Rookie</span>
+                      <span className="font-medium text-fitDark-900 dark:text-white">
+                        {userStats?.level <= 3 ? "Fitness Rookie" : 
+                         userStats?.level <= 6 ? "Fitness Enthusiast" : "Fitness Master"}
+                      </span>
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {xpProgress}% to Level {userLevel + 1}
+                      {userStats?.xp % 500 / 5}% to Level {(userStats?.level || 1) + 1}
                     </div>
                   </div>
-                  <Progress value={xpProgress} className="h-2 mb-4" />
+                  <Progress value={(userStats?.xp % 500) / 5} className="h-2 mb-4" />
                   
                   <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-6">
                     <span>0 XP</span>
@@ -308,7 +425,7 @@ const Dashboard = () => {
                       </div>
                       <div>
                         <h4 className="font-medium text-fitDark-900 dark:text-white">
-                          Level {userLevel + 1} Reward
+                          Level {(userStats?.level || 1) + 1} Reward
                         </h4>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                           Unlock advanced HIIT workouts and earn the "Fitness Enthusiast" badge!
@@ -328,7 +445,7 @@ const Dashboard = () => {
                   <CardTitle className="text-xl font-bold">Recommended For You</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Button variant="outline" className="w-full justify-between group" onClick={() => navigate('/trainer')}>
+                  <Button variant="outline" className="w-full justify-between group" onClick={() => navigate('/progress')}>
                     <div className="flex items-center">
                       <div className="bg-fitPurple-100 dark:bg-fitPurple-900/30 rounded-full p-1.5 mr-3">
                         <BarChart2 className="h-4 w-4 text-fitPurple-600 dark:text-fitPurple-400" />
@@ -356,41 +473,62 @@ const Dashboard = () => {
                   <CardTitle className="text-xl font-bold">Achievements</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {achievements.map((achievement) => (
-                    <div
-                      key={achievement.id}
-                      className={`flex items-center p-3 rounded-lg ${
-                        achievement.completed
-                          ? 'bg-fitPurple-50 dark:bg-fitPurple-900/20 border border-fitPurple-200 dark:border-fitPurple-800'
-                          : 'bg-gray-50 dark:bg-fitDark-800 border border-gray-200 dark:border-fitDark-700'
-                      }`}
-                    >
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
-                        achievement.completed
-                          ? 'bg-fitPurple-100 dark:bg-fitPurple-800 text-fitPurple-600 dark:text-fitPurple-300'
-                          : 'bg-gray-200 dark:bg-fitDark-700 text-gray-500 dark:text-gray-400'
-                      }`}>
-                        {achievement.icon}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-fitDark-900 dark:text-white">
-                            {achievement.name}
-                          </h4>
-                          {achievement.completed && (
+                  {achievements.length > 0 ? (
+                    achievements.slice(0, 4).map((achievement) => (
+                      <div
+                        key={achievement.id}
+                        className="flex items-center p-3 rounded-lg bg-fitPurple-50 dark:bg-fitPurple-900/20 border border-fitPurple-200 dark:border-fitPurple-800"
+                      >
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center mr-3 bg-fitPurple-100 dark:bg-fitPurple-800 text-fitPurple-600 dark:text-fitPurple-300">
+                          <Medal />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium text-fitDark-900 dark:text-white">
+                              {achievement.name}
+                            </h4>
                             <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                               Completed
                             </Badge>
-                          )}
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            {achievement.description}
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                          {achievement.description}
-                        </p>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    // Fallback to show these achievements for new users
+                    [
+                      { id: 1, name: "First Workout", description: "Complete your first workout", icon: <Medal />, completed: false },
+                      { id: 2, name: "3-Day Streak", description: "Work out for 3 consecutive days", icon: <Flame />, completed: false },
+                      { id: 3, name: "Level 5 Reached", description: "Reach fitness level 5", icon: <Award />, completed: false },
+                      { id: 4, name: "Cardio Master", description: "Complete 10 cardio workouts", icon: <Heart />, completed: false },
+                    ].map((achievement) => (
+                      <div
+                        key={achievement.id}
+                        className={`flex items-center p-3 rounded-lg bg-gray-50 dark:bg-fitDark-800 border border-gray-200 dark:border-fitDark-700`}
+                      >
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center mr-3 bg-gray-200 dark:bg-fitDark-700 text-gray-500 dark:text-gray-400">
+                          {achievement.icon}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-fitDark-900 dark:text-white">
+                            {achievement.name}
+                          </h4>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            {achievement.description}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                   
-                  <Button variant="ghost" className="w-full text-fitPurple-600 hover:text-fitPurple-700 hover:bg-fitPurple-50 dark:text-fitPurple-400 dark:hover:text-fitPurple-300 dark:hover:bg-fitPurple-900/20">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full text-fitPurple-600 hover:text-fitPurple-700 hover:bg-fitPurple-50 dark:text-fitPurple-400 dark:hover:text-fitPurple-300 dark:hover:bg-fitPurple-900/20"
+                    onClick={() => navigate('/profile')}
+                  >
                     View all achievements
                   </Button>
                 </CardContent>
