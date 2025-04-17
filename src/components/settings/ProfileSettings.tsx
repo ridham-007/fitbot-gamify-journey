@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -43,42 +42,47 @@ const ProfileSettings = () => {
   useEffect(() => {
     if (user) {
       const fetchProfile = async () => {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-        
-        if (error) {
-          toast({
-            title: "Error",
-            description: "Failed to fetch profile information.",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        if (data) {
-          form.reset({
-            username: data.username || '',
-            fitnessGoal: data.fitness_goal || '',
-            experienceLevel: data.experience_level || '',
-            preferredWorkoutType: data.preferred_workout_type || '',
-          });
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
           
-          if (data.avatar_url) {
-            try {
-              const { data: storageData } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(data.avatar_url);
-                
-              if (storageData) {
-                setAvatarUrl(storageData.publicUrl);
+          if (error) {
+            console.error("Error fetching profile:", error);
+            toast({
+              title: "Error",
+              description: "Failed to fetch profile information.",
+              variant: "destructive",
+            });
+            return;
+          }
+          
+          if (data) {
+            form.reset({
+              username: data.username || '',
+              fitnessGoal: data.fitness_goal || '',
+              experienceLevel: data.experience_level || '',
+              preferredWorkoutType: data.preferred_workout_type || '',
+            });
+            
+            if (data.avatar_url) {
+              try {
+                const { data: storageData } = supabase.storage
+                  .from('avatars')
+                  .getPublicUrl(data.avatar_url);
+                  
+                if (storageData) {
+                  setAvatarUrl(storageData.publicUrl);
+                }
+              } catch (error) {
+                console.error('Error getting avatar URL:', error);
               }
-            } catch (error) {
-              console.error('Error getting avatar URL:', error);
             }
           }
+        } catch (err) {
+          console.error("Unexpected error fetching profile:", err);
         }
       };
       
@@ -110,6 +114,7 @@ const ProfileSettings = () => {
         .eq('id', user.id);
 
       if (error) {
+        console.error("Profile update error:", error);
         toast({
           title: "Error",
           description: "Failed to update profile.",
@@ -122,6 +127,7 @@ const ProfileSettings = () => {
         });
       }
     } catch (error) {
+      console.error("Unexpected error during profile update:", error);
       toast({
         title: "Error",
         description: "An unexpected error occurred.",
@@ -149,11 +155,31 @@ const ProfileSettings = () => {
         return;
       }
 
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
+      
+      if (!avatarBucketExists) {
+        console.log("Creating avatars bucket");
+        const { error: bucketError } = await supabase.storage.createBucket('avatars', {
+          public: true,
+          fileSizeLimit: 1024 * 1024 * 2 // 2MB
+        });
+        
+        if (bucketError) {
+          console.error("Bucket creation error:", bucketError);
+          toast({
+            title: "Error",
+            description: "Failed to create storage for avatars.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      // Upload the image to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
@@ -171,7 +197,6 @@ const ProfileSettings = () => {
         return;
       }
 
-      // Update the user's profile with the new avatar URL
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
@@ -190,7 +215,6 @@ const ProfileSettings = () => {
         return;
       }
       
-      // Get public URL
       const { data: storageData } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);

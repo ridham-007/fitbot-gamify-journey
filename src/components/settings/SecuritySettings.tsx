@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(6, 'Password must be at least 6 characters'),
@@ -62,6 +62,7 @@ const SecuritySettings = () => {
       });
 
       if (signInError) {
+        console.error("Sign-in error:", signInError);
         throw new Error('Current password is incorrect');
       }
 
@@ -70,7 +71,10 @@ const SecuritySettings = () => {
         password: values.newPassword,
       });
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Update error:", updateError);
+        throw updateError;
+      }
 
       toast({
         title: 'Success',
@@ -193,7 +197,12 @@ const SecuritySettings = () => {
           />
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Updating...' : 'Update Password'}
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating...
+              </>
+            ) : 'Update Password'}
           </Button>
         </form>
       </Form>

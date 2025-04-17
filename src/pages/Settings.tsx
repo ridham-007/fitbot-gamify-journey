@@ -7,18 +7,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useUser } from '@/contexts/UserContext';
 import ProfileSettings from '@/components/settings/ProfileSettings';
 import SecuritySettings from '@/components/settings/SecuritySettings';
+import { Loader2 } from 'lucide-react';
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { isLoggedIn } = useUser();
+  const { isLoggedIn, user } = useUser();
   const [activeTab, setActiveTab] = useState('profile');
+  const [isLoading, setIsLoading] = useState(true);
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isLoggedIn) {
-      navigate('/login', { state: { from: '/settings' } });
-    }
+    const checkAuth = async () => {
+      setIsLoading(true);
+      
+      if (!isLoggedIn) {
+        navigate('/login', { state: { from: '/settings' } });
+      } else {
+        setIsLoading(false);
+      }
+    };
+    
+    checkAuth();
   }, [isLoggedIn, navigate]);
+
+  if (isLoading) {
+    return (
+      <MainLayout isLoggedIn={isLoggedIn}>
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout isLoggedIn={isLoggedIn}>
