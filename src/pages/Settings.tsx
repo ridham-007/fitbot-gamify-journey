@@ -53,17 +53,7 @@ const Settings = () => {
             </TabsList>
 
             <TabsContent value="profile">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Profile Settings</CardTitle>
-                  <CardDescription>
-                    Update your profile information and preferences
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ProfileSettings />
-                </CardContent>
-              </Card>
+              <ProfileSettings />
             </TabsContent>
 
             <TabsContent value="security">
