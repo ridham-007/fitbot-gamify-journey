@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -256,7 +257,7 @@ const ProfileSettings = () => {
             )}
           </Avatar>
           <div>
-            <FormDescription>Update your profile picture</FormDescription>
+            <p className="text-sm text-muted-foreground">Update your profile picture</p>
             <Input
               id="change-avatar"
               type="file"
@@ -283,6 +284,8 @@ const ProfileSettings = () => {
             </label>
           </div>
         </div>
+
+        {/* Wrap the form in a Form component */}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -349,7 +352,7 @@ const ProfileSettings = () => {
                 </FormItem>
               )}
             />
-            <CardFooter>
+            <CardFooter className="px-0">
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
                   <>
