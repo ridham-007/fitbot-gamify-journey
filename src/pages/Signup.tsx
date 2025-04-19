@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import MainLayout from '@/components/layout/MainLayout';
+import { GoogleButton } from '@/components/auth/GoogleButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
 import AccountForm, { AccountFormValues } from '@/components/auth/AccountForm';
@@ -19,7 +19,6 @@ const Signup = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [accountData, setAccountData] = useState<AccountFormValues | null>(null);
 
-  // Initialize profile form to maintain state between steps
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
@@ -27,7 +26,7 @@ const Signup = () => {
       experienceLevel: '',
       preferredWorkoutType: '',
     },
-    mode: "onChange", // Validate on change for immediate feedback
+    mode: "onChange",
   });
 
   useEffect(() => {
@@ -60,7 +59,6 @@ const Signup = () => {
     setIsLoading(true);
     
     try {
-      // Log form values for debugging
       console.log("Submitting to Supabase with:", {
         email: accountData.email,
         password: accountData.password,
@@ -123,7 +121,24 @@ const Signup = () => {
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white dark:bg-fitDark-800 py-8 px-4 shadow sm:rounded-lg sm:px-10">
             {currentStep === 1 ? (
-              <AccountForm onSubmit={handleAccountSubmit} />
+              <>
+                <AccountForm onSubmit={handleAccountSubmit} />
+                <div className="mt-6">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-300 dark:border-fitDark-600" />
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-white dark:bg-fitDark-800 text-gray-500 dark:text-gray-400">
+                        Or continue with
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-6">
+                    <GoogleButton />
+                  </div>
+                </div>
+              </>
             ) : (
               <ProfileForm 
                 onSubmit={handleProfileSubmit} 
