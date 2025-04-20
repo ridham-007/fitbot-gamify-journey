@@ -157,39 +157,71 @@ const ProfileSettings = () => {
         return;
       }
 
-      const { data: buckets } = await supabase.storage.listBuckets();
+      // Check if avatars bucket exists
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      
+      if (bucketsError) {
+        console.error("Error listing buckets:", bucketsError);
+        toast({
+          title: "Error",
+          description: "Failed to check storage buckets.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create bucket if it doesn't exist
       const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
       
       if (!avatarBucketExists) {
         console.log("Creating avatars bucket");
-        const { error: bucketError } = await supabase.storage.createBucket('avatars', {
-          public: true,
-          fileSizeLimit: 1024 * 1024 * 2 // 2MB
-        });
-        
-        if (bucketError) {
+        try {
+          const { error: bucketError } = await supabase.storage.createBucket('avatars', {
+            public: true,
+            fileSizeLimit: 1024 * 1024 * 2 // 2MB
+          });
+          
+          if (bucketError) {
+            throw bucketError;
+          }
+        } catch (bucketError) {
           console.error("Bucket creation error:", bucketError);
+          
+          // More specific error message based on the error
+          let errorMessage = "Failed to create storage for avatars.";
+          if ((bucketError as any)?.message?.includes('duplicate')) {
+            errorMessage = "Avatar storage already exists. Please try again.";
+          } else if ((bucketError as any)?.message?.includes('permission')) {
+            errorMessage = "Permission denied to create avatar storage.";
+          }
+          
           toast({
             title: "Error",
-            description: "Failed to create storage for avatars.",
+            description: errorMessage,
             variant: "destructive",
           });
           return;
         }
       }
 
+      // Continue with upload process
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true
-        });
+      // Upload file to the bucket
+      try {
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: true
+          });
 
-      if (uploadError) {
+        if (uploadError) {
+          throw uploadError;
+        }
+      } catch (uploadError) {
         console.error("File upload error:", uploadError);
         toast({
           title: "Error",
@@ -199,15 +231,20 @@ const ProfileSettings = () => {
         return;
       }
 
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          avatar_url: filePath,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id);
+      // Update profile with the avatar URL
+      try {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            avatar_url: filePath,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id);
 
-      if (updateError) {
+        if (updateError) {
+          throw updateError;
+        }
+      } catch (updateError) {
         console.error("Profile update error:", updateError);
         toast({
           title: "Error",
@@ -217,12 +254,18 @@ const ProfileSettings = () => {
         return;
       }
       
-      const { data: storageData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-        
-      if (storageData) {
-        setAvatarUrl(storageData.publicUrl);
+      // Get the public URL of the uploaded avatar
+      try {
+        const { data: storageData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+          
+        if (storageData) {
+          setAvatarUrl(storageData.publicUrl);
+        }
+      } catch (urlError) {
+        console.error("Error getting avatar URL:", urlError);
+        // Don't return, as the upload was successful even if we can't get the URL right now
       }
 
       toast({
@@ -230,7 +273,7 @@ const ProfileSettings = () => {
         description: "Avatar updated successfully.",
       });
     } catch (error) {
-      console.error("Unexpected error:", error);
+      console.error("Unexpected error during avatar upload:", error);
       toast({
         title: "Error",
         description: "An unexpected error occurred during avatar upload.",
