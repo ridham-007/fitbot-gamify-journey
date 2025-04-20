@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -139,38 +140,6 @@ const ProfileSettings = () => {
     }
   };
 
-  const createAvatarBucket = async () => {
-    try {
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-      
-      if (listError) {
-        console.error("Error listing buckets:", listError);
-        return { success: false, error: listError };
-      }
-      
-      const bucketExists = buckets?.some(bucket => bucket.name === 'avatars');
-      if (bucketExists) {
-        console.log("Avatars bucket already exists");
-        return { success: true };
-      }
-      
-      const { error: createError } = await supabase.storage.createBucket('avatars', {
-        public: true,
-        fileSizeLimit: 1024 * 1024 * 2 // 2MB
-      });
-      
-      if (createError) {
-        console.error("Error creating bucket:", createError);
-        return { success: false, error: createError };
-      }
-      
-      return { success: true };
-    } catch (error) {
-      console.error("Unexpected error creating bucket:", error);
-      return { success: false, error };
-    }
-  };
-
   const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -185,48 +154,30 @@ const ProfileSettings = () => {
         });
         return;
       }
-
-      const bucketResult = await createAvatarBucket();
-      if (!bucketResult.success) {
-        const errorMessage = bucketResult.error?.message || "Failed to prepare storage for avatars.";
-        toast({
-          title: "Storage Error",
-          description: errorMessage,
-          variant: "destructive",
-        });
-        return;
-      }
       
+      // Create a filename that starts with user ID
       const fileExt = file.name.split('.').pop();
       const filePath = `${user.id}.${fileExt}`;
       
-      try {
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: true
-          });
+      // Upload the file
+      const { error: uploadError, data: uploadData } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
 
-        if (uploadError) {
-          console.error("Upload error:", uploadError);
-          toast({
-            title: "Upload Failed",
-            description: `Failed to upload avatar: ${uploadError.message}`,
-            variant: "destructive",
-          });
-          return;
-        }
-      } catch (uploadError) {
-        console.error("Upload exception:", uploadError);
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
         toast({
-          title: "Upload Exception",
-          description: "An unexpected error occurred during upload.",
+          title: "Upload Failed",
+          description: `Failed to upload avatar: ${uploadError.message}`,
           variant: "destructive",
         });
         return;
       }
 
+      // Update profile with avatar URL
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
@@ -245,6 +196,7 @@ const ProfileSettings = () => {
         return;
       }
       
+      // Get public URL for the uploaded avatar
       const { data: urlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
