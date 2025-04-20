@@ -33,6 +33,30 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_trainer_chats: {
+        Row: {
+          created_at: string
+          id: string
+          is_user: boolean
+          message: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_user?: boolean
+          message: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_user?: boolean
+          message?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       challenges: {
         Row: {
           category: string
@@ -84,6 +108,42 @@ export type Database = {
           third_place_reward?: number | null
           title?: string
           xp_reward?: number
+        }
+        Relationships: []
+      }
+      exercise_videos: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          difficulty: string
+          id: string
+          muscle_group: string
+          name: string
+          thumbnail_url: string | null
+          video_url: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          difficulty: string
+          id?: string
+          muscle_group: string
+          name: string
+          thumbnail_url?: string | null
+          video_url: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          difficulty?: string
+          id?: string
+          muscle_group?: string
+          name?: string
+          thumbnail_url?: string | null
+          video_url?: string
         }
         Relationships: []
       }
@@ -214,6 +274,42 @@ export type Database = {
           user_id?: string
           workouts_completed?: number
           xp?: number
+        }
+        Relationships: []
+      }
+      user_workout_progress: {
+        Row: {
+          calories: number | null
+          created_at: string
+          duration: number
+          id: string
+          intensity: string | null
+          satisfaction_rating: number | null
+          user_id: string
+          workout_date: string
+          workout_type: string
+        }
+        Insert: {
+          calories?: number | null
+          created_at?: string
+          duration: number
+          id?: string
+          intensity?: string | null
+          satisfaction_rating?: number | null
+          user_id: string
+          workout_date?: string
+          workout_type: string
+        }
+        Update: {
+          calories?: number | null
+          created_at?: string
+          duration?: number
+          id?: string
+          intensity?: string | null
+          satisfaction_rating?: number | null
+          user_id?: string
+          workout_date?: string
+          workout_type?: string
         }
         Relationships: []
       }

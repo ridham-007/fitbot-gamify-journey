@@ -9,8 +9,12 @@ import MainLayout from '@/components/layout/MainLayout';
 import { 
   Send, Mic, Dumbbell, Info, User, Plus, ArrowRight, 
   Check, Heart, Clock, Play, Activity, Weight, BicepsFlexed,
-  BarChart
+  BarChart, Video
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import ExerciseVideo from '@/components/trainer/ExerciseVideo';
+import WorkoutChart from '@/components/trainer/WorkoutChart';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type Message = {
   id: string;
@@ -27,7 +31,6 @@ type Suggestion = {
   category: 'workout' | 'diet' | 'goals' | 'health';
 };
 
-// Enhanced AI responses
 const aiResponses: Record<string, {content: string, followUp?: Suggestion[]}> = {
   default: {
     content: "Hi! I'm your AI fitness coach. I can help with workout plans, nutrition advice, and fitness tracking. What would you like help with today?",
@@ -97,7 +100,6 @@ const aiResponses: Record<string, {content: string, followUp?: Suggestion[]}> = 
   }
 };
 
-// Main component
 const Trainer = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -113,8 +115,9 @@ const Trainer = () => {
       timestamp: new Date(),
     },
   ]);
+  const [exerciseVideos, setExerciseVideos] = useState([]);
+  const [workoutData, setWorkoutData] = useState([]);
 
-  // Default suggestions
   const defaultSuggestions: Suggestion[] = [
     { id: '1', text: "Create a personalized workout", icon: <Dumbbell className="h-4 w-4" />, category: 'workout' },
     { id: '2', text: "Help me improve my fitness", icon: <Activity className="h-4 w-4" />, category: 'goals' },
@@ -123,7 +126,6 @@ const Trainer = () => {
   ];
 
   useEffect(() => {
-    // Set initial suggestions from default response
     setCurrentSuggestions([
       ...defaultSuggestions,
       ...(aiResponses.default.followUp || [])
@@ -135,12 +137,60 @@ const Trainer = () => {
   }, [messages]);
 
   useEffect(() => {
-    // Check if user is logged in
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
     if (!isLoggedIn) {
       navigate('/login');
     }
   }, [navigate]);
+
+  useEffect(() => {
+    fetchChatHistory();
+    fetchExerciseVideos();
+    fetchWorkoutData();
+  }, []);
+
+  const fetchChatHistory = async () => {
+    const { data, error } = await supabase
+      .from('ai_trainer_chats')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (!error && data) {
+      setMessages(data.map(msg => ({
+        id: msg.id,
+        type: msg.is_user ? 'user' : 'ai',
+        content: msg.message,
+        timestamp: new Date(msg.created_at)
+      })));
+    }
+  };
+
+  const fetchExerciseVideos = async () => {
+    const { data, error } = await supabase
+      .from('exercise_videos')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (!error && data) {
+      setExerciseVideos(data);
+    }
+  };
+
+  const fetchWorkoutData = async () => {
+    const { data, error } = await supabase
+      .from('user_workout_progress')
+      .select('*')
+      .order('workout_date', { ascending: true })
+      .limit(7);
+
+    if (!error && data) {
+      setWorkoutData(data.map(workout => ({
+        date: new Date(workout.workout_date).toLocaleDateString('en-US', { weekday: 'short' }),
+        duration: workout.duration,
+        calories: workout.calories || 0
+      })));
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -149,14 +199,12 @@ const Trainer = () => {
   const findAIResponse = (input: string): { content: string, followUp?: Suggestion[] } => {
     const lowerInput = input.toLowerCase();
     
-    // Check for exact matches first
     for (const [key, response] of Object.entries(aiResponses)) {
       if (lowerInput.includes(key.toLowerCase())) {
         return response;
       }
     }
     
-    // Check for keyword matches
     if (lowerInput.includes('workout') || lowerInput.includes('exercise') || lowerInput.includes('train')) {
       return aiResponses.workouts;
     } else if (lowerInput.includes('upper body') || lowerInput.includes('arms') || lowerInput.includes('chest') || lowerInput.includes('shoulders')) {
@@ -175,7 +223,6 @@ const Trainer = () => {
       return aiResponses.diet;
     }
     
-    // Default response
     return aiResponses.default;
   };
 
@@ -190,8 +237,8 @@ const Trainer = () => {
     
     let i = 0;
     const fullContent = message.content;
-    const typingSpeed = 10; // ms per character
-    const minDisplayTime = 800; // minimum time to show the message in ms
+    const typingSpeed = 10;
+    const minDisplayTime = 800;
     
     const startTime = Date.now();
     
@@ -246,10 +293,11 @@ const Trainer = () => {
     setIsLoading(true);
     
     try {
-      // Simulate AI processing delay
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      // Get AI response based on input
+      await supabase.from('ai_trainer_chats').insert({
+        message: input,
+        is_user: true
+      });
+
       const responseData = findAIResponse(input);
       
       const aiMessage: Message = {
@@ -259,7 +307,6 @@ const Trainer = () => {
         timestamp: new Date(),
       };
       
-      // Update suggestions based on the AI response
       if (responseData.followUp && responseData.followUp.length > 0) {
         setCurrentSuggestions([
           ...responseData.followUp,
@@ -269,24 +316,29 @@ const Trainer = () => {
         setCurrentSuggestions(defaultSuggestions);
       }
       
-      // Simulate typing effect for the AI response
       simulateTyping(aiMessage, () => {
         setIsLoading(false);
       });
       
+      await supabase.from('ai_trainer_chats').insert({
+        message: aiMessage.content,
+        is_user: false
+      });
+      
+      setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to get response from AI trainer.",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handleSuggestionClick = (suggestion: Suggestion) => {
     setInput(suggestion.text);
-    // Automatically send the suggestion
     setTimeout(() => {
       document.getElementById('send-button')?.click();
     }, 100);
@@ -321,101 +373,135 @@ const Trainer = () => {
           </div>
         </div>
         
-        <div className="flex-grow bg-gray-50 dark:bg-fitDark-900 overflow-hidden flex flex-col">
-          <div className="max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 flex-grow overflow-auto">
-            <div className="py-4 space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[80%] px-4 py-3 rounded-lg ${
-                      message.type === 'user'
-                        ? 'bg-fitPurple-600 text-white rounded-br-none animate-slide-up'
-                        : 'bg-white dark:bg-fitDark-800 shadow border border-gray-100 dark:border-fitDark-700 rounded-bl-none animate-scale-in'
-                    }`}
-                  >
-                    <div className="whitespace-pre-wrap">{message.content}</div>
-                    {message.isTyping && (
-                      <div className="mt-2 flex space-x-1">
-                        <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-bounce" style={{ animationDelay: '200ms' }}></div>
-                        <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-bounce" style={{ animationDelay: '400ms' }}></div>
-                      </div>
-                    )}
-                    <div
-                      className={`text-xs mt-1 ${
-                        message.type === 'user' ? 'text-fitPurple-200' : 'text-gray-500 dark:text-gray-400'
-                      }`}
+        <div className="flex-grow bg-gray-50 dark:bg-fitDark-900 overflow-hidden flex flex-col lg:flex-row">
+          <div className="flex-grow lg:w-2/3 overflow-hidden flex flex-col">
+            <div className="flex-grow overflow-auto px-4">
+              <div className="max-w-4xl mx-auto py-4 space-y-4">
+                <AnimatePresence>
+                  {messages.map((message) => (
+                    <motion.div
+                      key={message.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <div
+                        className={`max-w-[80%] px-4 py-3 rounded-lg ${
+                          message.type === 'user'
+                            ? 'bg-fitPurple-600 text-white rounded-br-none animate-slide-up'
+                            : 'bg-white dark:bg-fitDark-800 shadow border border-gray-100 dark:border-fitDark-700 rounded-bl-none animate-scale-in'
+                        }`}
+                      >
+                        <div className="whitespace-pre-wrap">{message.content}</div>
+                        {message.isTyping && (
+                          <div className="mt-2 flex space-x-1">
+                            <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                            <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-bounce" style={{ animationDelay: '200ms' }}></div>
+                            <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-bounce" style={{ animationDelay: '400ms' }}></div>
+                          </div>
+                        )}
+                        <div
+                          className={`text-xs mt-1 ${
+                            message.type === 'user' ? 'text-fitPurple-200' : 'text-gray-500 dark:text-gray-400'
+                          }`}
+                        >
+                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                {isLoading && !messages[messages.length - 1]?.isTyping && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] px-4 py-3 rounded-lg bg-white dark:bg-fitDark-800 shadow border border-gray-100 dark:border-fitDark-700 rounded-bl-none animate-pulse">
+                      <div className="flex space-x-2">
+                        <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-pulse"></div>
+                        <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-              {isLoading && !messages[messages.length - 1]?.isTyping && (
-                <div className="flex justify-start">
-                  <div className="max-w-[80%] px-4 py-3 rounded-lg bg-white dark:bg-fitDark-800 shadow border border-gray-100 dark:border-fitDark-700 rounded-bl-none animate-pulse">
-                    <div className="flex space-x-2">
-                      <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-pulse"></div>
-                      <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                      <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
+                )}
+                <div ref={messagesEndRef} />
+              </div>
             </div>
-          </div>
-          
-          <div className="bg-white dark:bg-fitDark-800 border-t border-gray-200 dark:border-fitDark-700 py-4">
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="mb-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {currentSuggestions.map((suggestion) => (
+
+            <div className="bg-white dark:bg-fitDark-800 border-t border-gray-200 dark:border-fitDark-700 p-4">
+              <div className="max-w-4xl mx-auto">
+                <div className="mb-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  {currentSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.id}
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      className="flex items-center whitespace-nowrap px-3 py-1.5 text-sm bg-gray-100 dark:bg-fitDark-700 hover:bg-gray-200 dark:hover:bg-fitDark-600 rounded-full text-gray-700 dark:text-gray-300 transition-all hover:scale-105 active:scale-95"
+                    >
+                      {suggestion.icon && <span className="mr-1.5">{suggestion.icon}</span>}
+                      {suggestion.text}
+                    </button>
+                  ))}
                   <button
-                    key={suggestion.id}
-                    onClick={() => handleSuggestionClick(suggestion)}
                     className="flex items-center whitespace-nowrap px-3 py-1.5 text-sm bg-gray-100 dark:bg-fitDark-700 hover:bg-gray-200 dark:hover:bg-fitDark-600 rounded-full text-gray-700 dark:text-gray-300 transition-all hover:scale-105 active:scale-95"
                   >
-                    {suggestion.icon && <span className="mr-1.5">{suggestion.icon}</span>}
-                    {suggestion.text}
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    More suggestions
                   </button>
-                ))}
-                <button
-                  className="flex items-center whitespace-nowrap px-3 py-1.5 text-sm bg-gray-100 dark:bg-fitDark-700 hover:bg-gray-200 dark:hover:bg-fitDark-600 rounded-full text-gray-700 dark:text-gray-300 transition-all hover:scale-105 active:scale-95"
-                >
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  More suggestions
-                </button>
-              </div>
-              
-              <div className="flex items-end space-x-2">
-                <div className="flex-grow">
-                  <Textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask your AI fitness trainer anything..."
-                    className="min-h-[60px] resize-none focus:border-fitPurple-400 focus:ring-fitPurple-400"
-                  />
                 </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleVoiceInput}
-                  className="rounded-full h-10 w-10 transition-all hover:bg-fitPurple-50 hover:text-fitPurple-600 hover:border-fitPurple-300"
-                >
-                  <Mic className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                </Button>
-                <Button
-                  id="send-button"
-                  onClick={handleSend}
-                  disabled={!input.trim() || isLoading}
-                  className="rounded-full h-10 w-10 p-0 bg-fitPurple-600 hover:bg-fitPurple-700 transition-all active:scale-95"
-                >
-                  <Send className="h-5 w-5" />
-                </Button>
+                
+                <div className="flex items-end space-x-2">
+                  <div className="flex-grow">
+                    <Textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Ask your AI fitness trainer anything..."
+                      className="min-h-[60px] resize-none focus:border-fitPurple-400 focus:ring-fitPurple-400"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleVoiceInput}
+                    className="rounded-full h-10 w-10 transition-all hover:bg-fitPurple-50 hover:text-fitPurple-600 hover:border-fitPurple-300"
+                  >
+                    <Mic className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  </Button>
+                  <Button
+                    id="send-button"
+                    onClick={handleSend}
+                    disabled={!input.trim() || isLoading}
+                    className="rounded-full h-10 w-10 p-0 bg-fitPurple-600 hover:bg-fitPurple-700 transition-all active:scale-95"
+                  >
+                    <Send className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:w-1/3 border-l border-gray-200 dark:border-fitDark-700 bg-white dark:bg-fitDark-800 overflow-auto">
+            <div className="p-4 space-y-6">
+              <WorkoutChart
+                data={workoutData}
+                title="Weekly Workout Progress"
+              />
+              
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Video className="h-5 w-5" />
+                  Exercise Videos
+                </h3>
+                {exerciseVideos.map((video) => (
+                  <ExerciseVideo
+                    key={video.id}
+                    name={video.name}
+                    description={video.description}
+                    videoUrl={video.video_url}
+                    category={video.category}
+                    difficulty={video.difficulty}
+                    muscleGroup={video.muscle_group}
+                  />
+                ))}
               </div>
             </div>
           </div>
