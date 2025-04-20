@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -62,21 +61,37 @@ const fetchUserAchievements = async (userId) => {
   }));
 };
 
-// Get user stats
+// Get user profile and stats combined
 const fetchUserStats = async (userId) => {
   if (!userId) return null;
   
-  const { data, error } = await supabase
+  // Get user stats
+  const { data: statsData, error: statsError } = await supabase
     .from('user_stats')
     .select('*')
     .eq('user_id', userId)
     .single();
     
-  if (error) {
-    throw new Error(error.message);
+  if (statsError) {
+    throw new Error(statsError.message);
   }
   
-  return data;
+  // Get user profile to get username
+  const { data: profileData, error: profileError } = await supabase
+    .from('profiles')
+    .select('username')
+    .eq('id', userId)
+    .single();
+    
+  if (profileError) {
+    console.error("Error fetching profile:", profileError);
+  }
+  
+  // Combine the data
+  return {
+    ...statsData,
+    username: profileData?.username || "Fitness Warrior"
+  };
 };
 
 // Complete a workout and save it to the database

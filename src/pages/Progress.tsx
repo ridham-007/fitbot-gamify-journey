@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,31 +11,24 @@ import { useUser } from '@/contexts/UserContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
-// Fetch weekly progress data from the last 7 days
-const fetchWeeklyData = async (userId) => {
+interface WorkoutData {
+  date: string;
+  name: string;
+  xp: number;
+  workouts: number;
+  minutes: number;
+}
+
+const fetchWeeklyData = async (userId: string | undefined): Promise<WorkoutData[]> => {
   if (!userId) return [];
   
-  // Get the date 7 days ago
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
   
-  const { data, error } = await supabase
-    .from('daily_progress')
-    .select('*')
-    .eq('user_id', userId)
-    .gte('date', sevenDaysAgo.toISOString().split('T')[0])
-    .order('date', { ascending: true });
-    
-  if (error) {
-    throw new Error(error.message);
-  }
-  
-  // Format the data
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const today = new Date();
   
-  // Initialize the past 7 days with 0 values
-  const weeklyData = [];
+  const weeklyData: WorkoutData[] = [];
   for (let i = 6; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
@@ -49,65 +41,76 @@ const fetchWeeklyData = async (userId) => {
     });
   }
   
-  // Fill in the actual data
-  data.forEach(day => {
-    const index = weeklyData.findIndex(item => item.date === day.date);
-    if (index !== -1) {
-      weeklyData[index].xp = day.xp_earned;
-      weeklyData[index].workouts = day.workouts_completed;
-      weeklyData[index].minutes = day.minutes_active;
+  const { data: workouts, error } = await supabase
+    .from('workouts')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('completed_at', sevenDaysAgo.toISOString())
+    .order('completed_at', { ascending: true });
+    
+  if (error) {
+    throw new Error(error.message);
+  }
+  
+  workouts.forEach(workout => {
+    const workoutDate = new Date(workout.completed_at).toISOString().split('T')[0];
+    const dayIndex = weeklyData.findIndex(day => day.date === workoutDate);
+    
+    if (dayIndex !== -1) {
+      const xpEstimate = workout.xp_earned || workout.duration * 3;
+      
+      weeklyData[dayIndex].xp += xpEstimate;
+      weeklyData[dayIndex].workouts += 1;
+      weeklyData[dayIndex].minutes += workout.duration;
     }
   });
   
   return weeklyData;
 };
 
-// Fetch monthly progress data from the last 4 weeks
-const fetchMonthlyData = async (userId) => {
+const fetchMonthlyData = async (userId: string | undefined): Promise<WorkoutData[]> => {
   if (!userId) return [];
   
-  // Get the date 28 days ago
   const twentyEightDaysAgo = new Date();
   twentyEightDaysAgo.setDate(twentyEightDaysAgo.getDate() - 27);
   
-  const { data, error } = await supabase
-    .from('daily_progress')
+  const monthlyData: WorkoutData[] = Array.from({ length: 4 }, (_, i) => ({
+    name: `W${i+1}`,
+    date: '',
+    xp: 0,
+    workouts: 0,
+    minutes: 0
+  }));
+  
+  const { data: workouts, error } = await supabase
+    .from('workouts')
     .select('*')
     .eq('user_id', userId)
-    .gte('date', twentyEightDaysAgo.toISOString().split('T')[0])
-    .order('date', { ascending: true });
+    .gte('completed_at', twentyEightDaysAgo.toISOString())
+    .order('completed_at', { ascending: true });
     
   if (error) {
     throw new Error(error.message);
   }
   
-  // Group data by week
-  const monthlyData = [];
-  for (let i = 0; i < 4; i++) {
-    monthlyData.push({
-      name: `W${i+1}`,
-      xp: 0,
-      workouts: 0,
-      minutes: 0
-    });
-  }
-  
-  // Fill in the actual data
-  data.forEach(day => {
-    const date = new Date(day.date);
-    const daysSinceStart = Math.floor((date - twentyEightDaysAgo) / (1000 * 60 * 60 * 24));
+  workouts.forEach(workout => {
+    const workoutDate = new Date(workout.completed_at);
+    const daysSinceStart = Math.floor(
+      (workoutDate.getTime() - twentyEightDaysAgo.getTime()) / (1000 * 60 * 60 * 24)
+    );
     const weekIndex = Math.min(3, Math.floor(daysSinceStart / 7));
     
-    monthlyData[weekIndex].xp += day.xp_earned;
-    monthlyData[weekIndex].workouts += day.workouts_completed;
-    monthlyData[weekIndex].minutes += day.minutes_active;
+    const xpEstimate = workout.xp_earned || workout.duration * 3;
+    
+    monthlyData[weekIndex].xp += xpEstimate;
+    monthlyData[weekIndex].workouts += 1;
+    monthlyData[weekIndex].minutes += workout.duration;
   });
   
   return monthlyData;
 };
 
-// Fetch workout history
-const fetchWorkoutHistory = async (userId) => {
+const fetchWorkoutHistory = async (userId: string | undefined) => {
   if (!userId) return [];
   
   const { data, error } = await supabase
@@ -126,13 +129,12 @@ const fetchWorkoutHistory = async (userId) => {
     date: workout.completed_at,
     name: workout.workout_type,
     duration: workout.duration,
-    xp: workout.xp_earned || 0,
+    xp: workout.xp_earned || workout.duration * 3,
     completed: true
   }));
 };
 
-// Fetch user's achievements
-const fetchUserAchievements = async (userId) => {
+const fetchUserAchievements = async (userId: string | undefined) => {
   if (!userId) return [];
   
   const { data, error } = await supabase
@@ -164,8 +166,7 @@ const fetchUserAchievements = async (userId) => {
   }));
 };
 
-// Fetch user stats
-const fetchUserStats = async (userId) => {
+const fetchUserStats = async (userId: string | undefined) => {
   if (!userId) return null;
   
   const { data, error } = await supabase
@@ -185,54 +186,61 @@ const Progress = () => {
   const navigate = useNavigate();
   const { user } = useUser();
 
-  // React Query hooks for data fetching
   const { data: weeklyData = [], isLoading: weeklyLoading } = useQuery({
     queryKey: ['weeklyProgress', user?.id],
     queryFn: () => fetchWeeklyData(user?.id),
     enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: monthlyData = [], isLoading: monthlyLoading } = useQuery({
     queryKey: ['monthlyProgress', user?.id],
     queryFn: () => fetchMonthlyData(user?.id),
     enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: workoutHistory = [], isLoading: historyLoading } = useQuery({
     queryKey: ['workoutHistory', user?.id],
     queryFn: () => fetchWorkoutHistory(user?.id),
     enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: recentAchievements = [], isLoading: achievementsLoading } = useQuery({
     queryKey: ['recentAchievements', user?.id],
     queryFn: () => fetchUserAchievements(user?.id),
     enabled: !!user?.id,
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000,
   });
 
   const { data: userStats, isLoading: statsLoading } = useQuery({
     queryKey: ['userStats', user?.id],
     queryFn: () => fetchUserStats(user?.id),
     enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {
-    // Check if user is logged in
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
     if (!isLoggedIn) {
       navigate('/login');
     }
   }, [navigate]);
 
-  // Format date string to readable format
-  const formatDate = (dateString) => {
-    const options = { month: 'short', day: 'numeric' };
+  const formatDate = (dateString: string) => {
+    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString('en-US', options);
+  };
+
+  const getTotalMinutes = () => {
+    const weeklyMinutes = weeklyData.reduce((sum, day) => sum + day.minutes, 0);
+    const monthlyMinutes = monthlyData.reduce((sum, week) => sum + week.minutes, 0);
+    return monthlyMinutes;
+  };
+
+  const getWeeklyMinutes = () => {
+    return weeklyData.reduce((sum, day) => sum + day.minutes, 0);
   };
 
   if (weeklyLoading || monthlyLoading || historyLoading || achievementsLoading || statsLoading) {
@@ -273,7 +281,6 @@ const Progress = () => {
             </div>
           </div>
 
-          {/* Stats Overview */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <Card className="bg-white dark:bg-fitDark-800">
               <CardContent className="p-6">
@@ -317,7 +324,7 @@ const Progress = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Minutes</p>
                     <h3 className="text-2xl font-bold text-fitDark-900 dark:text-white mt-1">
-                      {weeklyData.reduce((sum, day) => sum + day.minutes, 0) + (monthlyData.reduce((sum, week) => sum + week.minutes, 0) - weeklyData.reduce((sum, day) => sum + day.minutes, 0))}
+                      {getTotalMinutes()}
                     </h3>
                   </div>
                   <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
@@ -326,7 +333,7 @@ const Progress = () => {
                 </div>
                 <div className="text-xs text-green-600 dark:text-green-400 flex items-center mt-2">
                   <Zap className="h-3 w-3 mr-1" />
-                  <span>{weeklyData.reduce((sum, day) => sum + day.minutes, 0)} minutes this week</span>
+                  <span>{getWeeklyMinutes()} minutes this week</span>
                 </div>
               </CardContent>
             </Card>
@@ -337,8 +344,7 @@ const Progress = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Calories Burned</p>
                     <h3 className="text-2xl font-bold text-fitDark-900 dark:text-white mt-1">
-                      {/* Estimate calories as 10 per active minute */}
-                      {(weeklyData.reduce((sum, day) => sum + day.minutes, 0) + (monthlyData.reduce((sum, week) => sum + week.minutes, 0) - weeklyData.reduce((sum, day) => sum + day.minutes, 0))) * 10}
+                      {getTotalMinutes() * 10}
                     </h3>
                   </div>
                   <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-lg">
@@ -347,13 +353,12 @@ const Progress = () => {
                 </div>
                 <div className="text-xs text-green-600 dark:text-green-400 flex items-center mt-2">
                   <Zap className="h-3 w-3 mr-1" />
-                  <span>{weeklyData.reduce((sum, day) => sum + day.minutes, 0) * 10} calories this week</span>
+                  <span>{getWeeklyMinutes() * 10} calories this week</span>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
             <Card className="bg-white dark:bg-fitDark-800 lg:col-span-2">
               <CardHeader className="pb-0">
@@ -454,7 +459,6 @@ const Progress = () => {
                       </div>
                     ))
                   ) : (
-                    // Show sample achievements if none are found
                     <div className="text-center py-4">
                       <p className="text-gray-500 dark:text-gray-400 text-sm">Complete workouts to earn achievements!</p>
                     </div>
@@ -467,7 +471,6 @@ const Progress = () => {
             </Card>
           </div>
 
-          {/* Workout History */}
           <Card className="bg-white dark:bg-fitDark-800 mb-8">
             <CardHeader>
               <CardTitle className="text-xl font-bold flex items-center">
@@ -546,7 +549,6 @@ const Progress = () => {
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Button variant="outline" className="h-auto py-6 flex-col space-y-2" onClick={() => navigate('/dashboard')}>
               <Dumbbell className="h-6 w-6 mb-1 text-fitPurple-600 dark:text-fitPurple-400" />
