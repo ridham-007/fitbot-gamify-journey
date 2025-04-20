@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,7 @@ import { Calendar, Trophy, Flame, Clock, Dumbbell, BarChart2, Zap, Share2, Loade
 import { useUser } from '@/contexts/UserContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { Progress } from '@/components/ui/progress';
 
 interface WorkoutData {
   date: string;
@@ -57,7 +59,8 @@ const fetchWeeklyData = async (userId: string | undefined): Promise<WorkoutData[
     const dayIndex = weeklyData.findIndex(day => day.date === workoutDate);
     
     if (dayIndex !== -1) {
-      const xpEstimate = workout.xp_earned || workout.duration * 3;
+      // Calculate XP based on duration (3 XP per minute)
+      const xpEstimate = workout.calories_burned || workout.duration * 3;
       
       weeklyData[dayIndex].xp += xpEstimate;
       weeklyData[dayIndex].workouts += 1;
@@ -100,7 +103,8 @@ const fetchMonthlyData = async (userId: string | undefined): Promise<WorkoutData
     );
     const weekIndex = Math.min(3, Math.floor(daysSinceStart / 7));
     
-    const xpEstimate = workout.xp_earned || workout.duration * 3;
+    // Calculate XP based on duration (3 XP per minute)
+    const xpEstimate = workout.calories_burned || workout.duration * 3;
     
     monthlyData[weekIndex].xp += xpEstimate;
     monthlyData[weekIndex].workouts += 1;
@@ -129,7 +133,8 @@ const fetchWorkoutHistory = async (userId: string | undefined) => {
     date: workout.completed_at,
     name: workout.workout_type,
     duration: workout.duration,
-    xp: workout.xp_earned || workout.duration * 3,
+    // Calculate XP based on duration (3 XP per minute) or calories if available
+    xp: workout.calories_burned || workout.duration * 3,
     completed: true
   }));
 };
@@ -243,6 +248,13 @@ const Progress = () => {
     return weeklyData.reduce((sum, day) => sum + day.minutes, 0);
   };
 
+  // Calculate user's level progress
+  const getLevelProgress = () => {
+    if (!userStats) return 0;
+    const currentLevelXP = userStats.xp - (userStats.level - 1) * 1000;
+    return Math.min(100, (currentLevelXP / 1000) * 100);
+  };
+
   if (weeklyLoading || monthlyLoading || historyLoading || achievementsLoading || statsLoading) {
     return (
       <MainLayout isLoggedIn={true}>
@@ -292,6 +304,15 @@ const Progress = () => {
                   <div className="bg-fitPurple-100 dark:bg-fitPurple-900/30 p-2 rounded-lg">
                     <Trophy className="h-5 w-5 text-fitPurple-600 dark:text-fitPurple-400" />
                   </div>
+                </div>
+                <div className="mt-3">
+                  <div className="flex justify-between items-center mb-1 text-xs">
+                    <span className="text-gray-500 dark:text-gray-400">Level {userStats?.level || 1}</span>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      {Math.floor(getLevelProgress())}%
+                    </span>
+                  </div>
+                  <Progress value={getLevelProgress()} className="h-1.5" />
                 </div>
                 <div className="text-xs text-green-600 dark:text-green-400 flex items-center mt-2">
                   <Zap className="h-3 w-3 mr-1" />
