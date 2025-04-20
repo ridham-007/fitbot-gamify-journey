@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
@@ -34,6 +35,29 @@ const Signup = () => {
       navigate('/dashboard');
     }
   }, [isLoggedIn, navigate]);
+
+  const handleGoogleSignUp = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        }
+      });
+      
+      if (error) throw error;
+    } catch (error: any) {
+      toast({
+        title: "Sign up failed",
+        description: error.message || "An error occurred during Google sign up",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleAccountSubmit = (values: AccountFormValues) => {
     console.log("Account form submitted:", values);
@@ -135,7 +159,18 @@ const Signup = () => {
                     </div>
                   </div>
                   <div className="mt-6">
-                    <GoogleButton />
+                    <button 
+                      onClick={handleGoogleSignUp}
+                      className="w-full flex items-center justify-center bg-white dark:bg-fitDark-700 border border-gray-300 dark:border-fitDark-600 rounded-md shadow-sm px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-fitDark-600"
+                    >
+                      <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
+                        <path
+                          d="M12.545 10.239v3.821h5.445c-.712 2.315-2.647 3.972-5.445 3.972a6.033 6.033 0 110-12.064c1.498 0 2.866.549 3.921 1.453l2.814-2.814A9.969 9.969 0 0012.545 2C7.021 2 2.543 6.477 2.543 12s4.478 10 10.002 10c8.396 0 10.249-7.85 9.426-11.748l-9.426-.013z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                      Sign up with Google
+                    </button>
                   </div>
                 </div>
               </>
