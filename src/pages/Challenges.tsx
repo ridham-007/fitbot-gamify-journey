@@ -16,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import ChallengeCard from '@/components/challenges/ChallengeCard';
 
 interface Challenge {
   id: string;
@@ -39,6 +40,7 @@ interface Challenge {
   userChallengeId?: string;
   rank?: number;
   reward_claimed?: boolean;
+  isCreatedByUser?: boolean;
 }
 
 interface UserChallenge {
@@ -511,7 +513,7 @@ const ChallengeLeaderboardDialog = ({ challengeId, title }: { challengeId: strin
                             entry.rank === 1 ? "bg-yellow-500 text-white" :
                             entry.rank === 2 ? "bg-gray-400 text-white" :
                             entry.rank === 3 ? "bg-amber-600 text-white" :
-                            "bg-fitDark-100 dark:bg-fitDark-700 text-fitDark-700 dark:text-fitDark-300"
+                            "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                           )}>
                             {entry.rank}
                           </div>
@@ -735,10 +737,11 @@ const Challenges = () => {
         progress: userChallenge?.progress || 0,
         participants,
         xpCost,
-        userChallengeId: userChallenge?.id
+        userChallengeId: userChallenge?.id,
+        isCreatedByUser: challenge.created_by === user?.id
       };
     });
-  }, [challenges, userChallenges]);
+  }, [challenges, userChallenges, user?.id]);
   
   const filteredChallenges = React.useMemo(() => {
     if (!processedChallenges) return [];
@@ -794,7 +797,7 @@ const Challenges = () => {
           </div>
         </div>
         
-        <div className="bg-white dark:bg-fitDark-800 rounded-lg shadow-sm p-6 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-8">
           <Tabs defaultValue="all" className="w-full">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
               <TabsList className="mb-4 sm:mb-0">
@@ -835,7 +838,6 @@ const Challenges = () => {
               {isLoadingChallenges || isLoadingUserChallenges ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
-                    <div key={i} className="bg-gray-50 dark:bg-fitDark-700/20 p-6 rounded-lg animate-pulse">
-                      <div className="h-6 w-2/3 bg-gray-200 dark:bg-fitDark-600 rounded mb-4"></div>
-                      <div className="h-20 bg-gray-200 dark:bg-fitDark-600 rounded mb-4"></div>
-                      <div className="h
+                    <div key={i} className="bg-gray-50 dark:bg-gray-700/20 p-6 rounded-lg animate-pulse">
+                      <div className="h-6 w-2/3 bg-gray-200 dark:bg-gray-600 rounded mb-4"></div>
+                      <div className="
