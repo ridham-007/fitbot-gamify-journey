@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/contexts/UserContext';
 import AccountForm from '@/components/auth/AccountForm';
-import GoogleButton from '@/components/auth/GoogleButton';
+import {GoogleButton} from '@/components/auth/GoogleButton';
 import { Separator } from '@/components/ui/separator';
 
 const Login = () => {
