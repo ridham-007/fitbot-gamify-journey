@@ -187,7 +187,7 @@ const fetchUserStats = async (userId: string | undefined) => {
   return data;
 };
 
-const Progress = () => {
+const ProgressUI = () => {
   const navigate = useNavigate();
   const { user } = useUser();
 
@@ -595,4 +595,4 @@ const Progress = () => {
   );
 };
 
-export default Progress;
+export default ProgressUI;

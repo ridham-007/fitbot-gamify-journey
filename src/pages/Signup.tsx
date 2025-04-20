@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import MainLayout from '@/components/layout/MainLayout';
-import { GoogleButton } from '@/components/auth/GoogleButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
 import AccountForm, { AccountFormValues } from '@/components/auth/AccountForm';
@@ -134,9 +133,6 @@ const Signup = () => {
                         Or continue with
                       </span>
                     </div>
-                  </div>
-                  <div className="mt-6">
-                    <GoogleButton />
                   </div>
                 </div>
               </>
