@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Trophy, Users, Calendar, Award } from "lucide-react";
 import { useUser } from '@/contexts/UserContext';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export type ChallengeType = {
   id: string;
@@ -65,16 +66,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, onJoin }) => {
   const { userXp, user } = useUser();
   const { toast } = useToast();
   
-  const handleJoin = () => {
-    if (challenge.xpCost && userXp < challenge.xpCost) {
-      toast({
-        title: "Not Enough XP!",
-        description: `You need ${challenge.xpCost - userXp} more XP to join this challenge.`,
-        variant: "destructive",
-      });
-      return;
-    }
-    
+  const handleJoin = async () => {
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -84,11 +76,50 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, onJoin }) => {
       return;
     }
     
-    onJoin(challenge.id);
-    toast({
-      title: "Challenge Joined!",
-      description: `You've successfully joined the ${challenge.title} challenge.`,
-    });
+    if (challenge.xpCost && userXp < challenge.xpCost) {
+      toast({
+        title: "Not Enough XP!",
+        description: `You need ${challenge.xpCost - userXp} more XP to join this challenge.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      // First attempt to join the challenge
+      const { error } = await supabase
+        .from('user_challenges')
+        .insert({
+          user_id: user.id,
+          challenge_id: challenge.id,
+          progress: 0
+        });
+      
+      if (error) {
+        console.error("Error joining challenge:", error);
+        toast({
+          title: "Error",
+          description: `Failed to join challenge: ${error.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // If successful, invoke the callback
+      onJoin(challenge.id);
+      
+      toast({
+        title: "Challenge Joined!",
+        description: `You've successfully joined the ${challenge.title} challenge.`,
+      });
+    } catch (error) {
+      console.error("Error in handleJoin:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Calculate days remaining
