@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useUser } from '@/contexts/UserContext';
 import MainLayout from '@/components/layout/MainLayout';
 import UserProfile from '@/components/profile/UserProfile';
-import { Award, Calendar, Dumbbell, Medal, Trophy, User, Settings } from 'lucide-react';
+import { Award, Calendar, Dumbbell, Medal, Settings, Trophy } from 'lucide-react';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -16,94 +16,106 @@ const Profile = () => {
 
   // Mock achievements data
   const achievements = [
-    { id: 1, name: 'First Workout', description: 'Complete your first workout', icon: <Medal />, date: 'Mar 25', completed: true },
-    { id: 2, name: '3-Day Streak', description: 'Work out for 3 consecutive days', icon: <Award />, date: 'Mar 29', completed: true },
-    { id: 3, name: 'Level 5 Reached', description: 'Reach fitness level 5', icon: <Trophy />, date: '', completed: false },
-    { id: 4, name: 'Cardio Master', description: 'Complete 10 cardio workouts', icon: <Dumbbell />, date: '', completed: false },
-    { id: 5, name: 'Morning Person', description: 'Complete 5 workouts before 9am', icon: <Calendar />, date: 'Apr 05', completed: true },
-    { id: 6, name: 'Consistency King', description: 'Complete 20 workouts', icon: <Trophy />, date: 'Apr 10', completed: true },
-  ];
-
-  // Mock badges data
-  const badges = [
-    { id: 1, name: 'Fitness Rookie', description: 'Reach level 1', icon: 'R', color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
-    { id: 2, name: 'Fitness Enthusiast', description: 'Reach level 5', icon: 'E', color: 'bg-fitPurple-100 text-fitPurple-600 dark:bg-fitPurple-900/30 dark:text-fitPurple-400' },
-    { id: 3, name: 'HIIT Expert', description: 'Complete 15 HIIT workouts', icon: 'H', color: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' },
+    { id: 1, name: 'First Workout', description: 'Complete your first workout', icon: <Medal className="w-5 h-5" />, date: 'Mar 25', completed: true },
+    { id: 2, name: '3-Day Streak', description: 'Work out for 3 consecutive days', icon: <Award className="w-5 h-5" />, date: 'Mar 29', completed: true },
+    { id: 3, name: 'Level 5 Reached', description: 'Reach fitness level 5', icon: <Trophy className="w-5 h-5" />, date: '', completed: false },
+    { id: 4, name: 'Cardio Master', description: 'Complete 10 cardio workouts', icon: <Dumbbell className="w-5 h-5" />, date: '', completed: false },
+    { id: 5, name: 'Morning Person', description: 'Complete 5 workouts before 9am', icon: <Calendar className="w-5 h-5" />, date: 'Apr 05', completed: true },
+    { id: 6, name: 'Consistency King', description: 'Complete 20 workouts', icon: <Trophy className="w-5 h-5" />, date: 'Apr 10', completed: true },
   ];
 
   React.useEffect(() => {
-    // Redirect to login if not logged in
     if (!isLoggedIn) {
       navigate('/login');
     }
   }, [isLoggedIn, navigate]);
 
-  if (!isLoggedIn) {
-    return null; // Don't render anything while redirecting
-  }
+  if (!isLoggedIn) return null;
 
   return (
     <MainLayout isLoggedIn={true}>
-      <div className="bg-gray-50 dark:bg-fitDark-900 min-h-screen py-8">
+      <div className="bg-gradient-to-b from-gray-50 to-white dark:from-fitDark-900 dark:to-fitDark-800 min-h-screen py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* User Profile Component */}
+          {/* Profile Header Component */}
           <UserProfile />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Sidebar */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+            {/* Sidebar - Quick Actions */}
             <div className="space-y-6">
-              {/* Badges */}
               <Card className="bg-white dark:bg-fitDark-800">
                 <CardHeader>
-                  <CardTitle className="text-xl font-bold flex items-center">
-                    <Award className="h-5 w-5 mr-2 text-yellow-500" />
-                    Badges
-                  </CardTitle>
+                  <CardTitle className="text-xl font-bold">Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start" 
+                    onClick={() => navigate('/settings')}
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    Edit Profile Settings
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start" 
+                    onClick={() => navigate('/trainer')}
+                  >
+                    <Dumbbell className="mr-2 h-4 w-4" />
+                    Start New Workout
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start" 
+                    onClick={() => navigate('/challenges')}
+                  >
+                    <Trophy className="mr-2 h-4 w-4" />
+                    View Challenges
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Recent Activity Card */}
+              <Card className="bg-white dark:bg-fitDark-800">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold">Recent Activity</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-3 gap-4">
-                    {badges.map((badge) => (
-                      <div key={badge.id} className="flex flex-col items-center text-center">
-                        <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold mb-2 ${badge.color}`}>
-                          {badge.icon}
+                  <div className="space-y-4">
+                    {[
+                      { action: 'Completed workout', time: '2 hours ago', type: 'HIIT Training' },
+                      { action: 'Earned badge', time: '1 day ago', type: 'Consistency King' },
+                      { action: 'Joined challenge', time: '2 days ago', type: 'Summer Shred' },
+                    ].map((activity, index) => (
+                      <div key={index} className="flex items-start space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="w-2 h-2 mt-2 rounded-full bg-fitPurple-500" />
                         </div>
-                        <div className="text-xs font-medium text-fitDark-900 dark:text-white">
-                          {badge.name}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                          {badge.description}
+                        <div>
+                          <p className="text-sm font-medium text-fitDark-900 dark:text-white">
+                            {activity.action}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {activity.time} • {activity.type}
+                          </p>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <Button variant="ghost" className="w-full mt-4 text-fitPurple-600 hover:text-fitPurple-700 hover:bg-fitPurple-50 dark:text-fitPurple-400 dark:hover:text-fitPurple-300 dark:hover:bg-fitPurple-900/20">
-                    View all badges
-                  </Button>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Main Content */}
+            {/* Main Content Area */}
             <div className="lg:col-span-2">
               <Card className="bg-white dark:bg-fitDark-800">
                 <CardHeader className="pb-2">
-                  <Tabs defaultValue="achievements">
-                    <TabsList>
-                      <TabsTrigger value="achievements" className="flex items-center">
-                        <Trophy className="h-4 w-4 mr-2" />
-                        Achievements
-                      </TabsTrigger>
-                      <TabsTrigger value="history" className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Workout History
-                      </TabsTrigger>
-                      <TabsTrigger value="settings" className="flex items-center">
-                        <Settings className="h-4 w-4 mr-2" />
-                        Settings
-                      </TabsTrigger>
+                  <Tabs defaultValue="achievements" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="achievements">Achievements</TabsTrigger>
+                      <TabsTrigger value="stats">Workout Stats</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="achievements" className="mt-6 space-y-6">
+                    <TabsContent value="achievements" className="mt-6">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {achievements.map((achievement) => (
                           <div
@@ -141,73 +153,64 @@ const Profile = () => {
                       </div>
                     </TabsContent>
 
-                    <TabsContent value="history" className="mt-6">
-                      <div className="text-center py-12">
-                        <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <h3 className="text-lg font-medium text-fitDark-900 dark:text-white mb-2">
-                          Workout History
-                        </h3>
-                        <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-6">
-                          Track your workout history, see your progress, and analyze your performance over time.
-                        </p>
-                        <Button onClick={() => navigate('/progress')}>
-                          View Full History
-                        </Button>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="settings" className="mt-6">
-                      <div className="max-w-xl mx-auto">
-                        <div className="space-y-6">
-                          <div>
-                            <h3 className="text-lg font-medium text-fitDark-900 dark:text-white mb-4">
-                              Notification Preferences
-                            </h3>
+                    <TabsContent value="stats" className="mt-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Workout Distribution</CardTitle>
+                          </CardHeader>
+                          <CardContent>
                             <div className="space-y-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="font-medium text-fitDark-900 dark:text-white">
-                                    Workout Reminders
+                              {[
+                                { type: 'Strength', percentage: 45, color: 'bg-fitPurple-500' },
+                                { type: 'Cardio', percentage: 30, color: 'bg-blue-500' },
+                                { type: 'HIIT', percentage: 15, color: 'bg-orange-500' },
+                                { type: 'Yoga', percentage: 10, color: 'bg-green-500' },
+                              ].map((stat) => (
+                                <div key={stat.type} className="space-y-2">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-gray-600 dark:text-gray-400">{stat.type}</span>
+                                    <span className="font-medium text-fitDark-900 dark:text-white">{stat.percentage}%</span>
                                   </div>
-                                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    Get notifications for your scheduled workouts
-                                  </div>
-                                </div>
-                                <div className="h-6 w-11 rounded-full bg-fitPurple-600 relative cursor-pointer">
-                                  <div className="absolute right-1 top-1 h-4 w-4 rounded-full bg-white"></div>
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="font-medium text-fitDark-900 dark:text-white">
-                                    Achievement Alerts
-                                  </div>
-                                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    Get notified when you earn a new achievement
+                                  <div className="h-2 bg-gray-100 dark:bg-fitDark-700 rounded-full">
+                                    <div
+                                      className={`h-full rounded-full ${stat.color}`}
+                                      style={{ width: `${stat.percentage}%` }}
+                                    />
                                   </div>
                                 </div>
-                                <div className="h-6 w-11 rounded-full bg-fitPurple-600 relative cursor-pointer">
-                                  <div className="absolute right-1 top-1 h-4 w-4 rounded-full bg-white"></div>
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="font-medium text-fitDark-900 dark:text-white">
-                                    Weekly Summaries
-                                  </div>
-                                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    Receive a weekly summary of your progress
-                                  </div>
-                                </div>
-                                <div className="h-6 w-11 rounded-full bg-gray-300 dark:bg-fitDark-700 relative cursor-pointer">
-                                  <div className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white"></div>
-                                </div>
-                              </div>
+                              ))}
                             </div>
-                          </div>
-                        </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Monthly Progress</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              {[
+                                { label: 'Workouts Completed', value: '24', change: '+8' },
+                                { label: 'Average Duration', value: '45min', change: '+5min' },
+                                { label: 'Calories Burned', value: '12,450', change: '+2,800' },
+                                { label: 'Personal Records', value: '5', change: '+2' },
+                              ].map((metric) => (
+                                <div key={metric.label} className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-600 dark:text-gray-400">{metric.label}</span>
+                                  <div className="text-right">
+                                    <span className="block font-medium text-fitDark-900 dark:text-white">
+                                      {metric.value}
+                                    </span>
+                                    <span className="text-xs text-green-600 dark:text-green-400">
+                                      {metric.change} this month
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
                       </div>
                     </TabsContent>
                   </Tabs>
