@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -31,74 +32,13 @@ type Suggestion = {
   category: 'workout' | 'diet' | 'goals' | 'health';
 };
 
-const aiResponses: Record<string, {content: string, followUp?: Suggestion[]}> = {
-  default: {
-    content: "Hi! I'm your AI fitness coach. I can help with workout plans, nutrition advice, and fitness tracking. What would you like help with today?",
-    followUp: [
-      { id: 's1', text: "Create a workout plan", icon: <Dumbbell className="h-4 w-4" />, category: 'workout' },
-      { id: 's2', text: "Nutrition advice", icon: <User className="h-4 w-4" />, category: 'diet' },
-    ]
-  },
-  workouts: {
-    content: "Based on your fitness level and goals, I recommend a balanced program with strength training and cardio. Here's a personalized 4-week plan:\n\n**Week 1-2: Foundation**\n- Monday: Upper body (3 sets, 10-12 reps)\n- Tuesday: 20 min cardio (moderate intensity)\n- Wednesday: Rest\n- Thursday: Lower body (3 sets, 10-12 reps)\n- Friday: 20 min cardio (moderate intensity)\n- Weekend: Active recovery (walking, yoga)\n\n**Week 3-4: Progression**\n- Increase weights by 5-10%\n- Extend cardio to 25-30 minutes\n\nWould you like me to detail specific exercises for any of these days?",
-    followUp: [
-      { id: 'w1', text: "Show upper body exercises", icon: <BicepsFlexed className="h-4 w-4" />, category: 'workout' },
-      { id: 'w2', text: "Show lower body exercises", icon: <Weight className="h-4 w-4" />, category: 'workout' },
-      { id: 'w3', text: "Cardio recommendations", icon: <Activity className="h-4 w-4" />, category: 'workout' },
-    ]
-  },
-  "upper body": {
-    content: "Here's your upper body workout:\n\n1. **Push-ups**: 3 sets of 10-15 reps\n2. **Dumbbell bench press**: 3 sets of 10-12 reps\n3. **Bent-over rows**: 3 sets of 10-12 reps\n4. **Overhead press**: 3 sets of 10-12 reps\n5. **Bicep curls**: 3 sets of 12-15 reps\n6. **Tricep dips**: 3 sets of 12-15 reps\n\nRest 60-90 seconds between sets. Ensure proper form throughout. Would you like form tips for any specific exercise?",
-    followUp: [
-      { id: 'ub1', text: "How to do proper push-ups", icon: <Info className="h-4 w-4" />, category: 'workout' },
-      { id: 'ub2', text: "Alternatives with no equipment", icon: <Dumbbell className="h-4 w-4" />, category: 'workout' },
-    ]
-  },
-  "lower body": {
-    content: "Here's your lower body workout:\n\n1. **Squats**: 3 sets of 12-15 reps\n2. **Lunges**: 3 sets of 10-12 reps per leg\n3. **Romanian deadlifts**: 3 sets of 10-12 reps\n4. **Calf raises**: 3 sets of 15-20 reps\n5. **Glute bridges**: 3 sets of 15 reps\n6. **Wall sits**: 3 sets of 30-45 seconds\n\nRest 60-90 seconds between sets. Focus on form over weight. Would you like me to explain any of these exercises in detail?",
-    followUp: [
-      { id: 'lb1', text: "Proper squat technique", icon: <Info className="h-4 w-4" />, category: 'workout' },
-      { id: 'lb2', text: "Modify for knee pain", icon: <Heart className="h-4 w-4" />, category: 'health' },
-    ]
-  },
-  cardio: {
-    content: "For effective cardio training, here are my recommendations:\n\n**Moderate Intensity Options (20-30 mins)**:\n- Brisk walking (3-4 mph)\n- Cycling (moderate pace)\n- Elliptical trainer\n- Swimming\n\n**High Intensity Options (15-20 mins)**:\n- Interval sprints (30 sec sprint, 90 sec walk)\n- Jump rope intervals\n- Stair climbing\n- HIIT circuit (30 sec work, 30 sec rest)\n\nStart with moderate intensity 2-3 times per week, then gradually add 1-2 high intensity sessions as your fitness improves.",
-    followUp: [
-      { id: 'c1', text: "HIIT workout example", icon: <Activity className="h-4 w-4" />, category: 'workout' },
-      { id: 'c2', text: "Best cardio for fat loss", icon: <Weight className="h-4 w-4" />, category: 'workout' },
-    ]
-  },
-  routine: {
-    content: "Here's a customized full-body routine for you:\n\n**Warm-up (5 mins):**\n- Jumping jacks: 30 seconds\n- Arm circles: 30 seconds\n- Bodyweight squats: 30 seconds\n- High knees: 30 seconds\n- Torso twists: 30 seconds\n\n**Main workout (25 mins):**\n- Push-ups: 12 reps\n- Bodyweight squats: 15 reps\n- Plank: 30 seconds\n- Lunges: 10 reps each leg\n- Mountain climbers: 30 seconds\n_Rest 60 seconds and repeat 3 times_\n\n**Cool down (5 mins):**\n- Light stretching\n\nWould you like to start a timer for this workout?",
-    followUp: [
-      { id: 'r1', text: "Start workout timer", icon: <Play className="h-4 w-4" />, category: 'workout' },
-      { id: 'r2', text: "Modify for beginner", icon: <Info className="h-4 w-4" />, category: 'workout' },
-    ]
-  },
-  goals: {
-    content: "Setting specific fitness goals is key to success! What are you aiming for?\n\n**Common fitness goals:**\n- Weight loss (fat reduction)\n- Muscle gain (hypertrophy)\n- Strength improvement\n- Endurance building\n- General fitness and health\n- Athletic performance\n\nLet me know your primary goal, and I can help create a tailored plan with measurable milestones.",
-    followUp: [
-      { id: 'g1', text: "Weight loss plan", icon: <Weight className="h-4 w-4" />, category: 'goals' },
-      { id: 'g2', text: "Muscle building plan", icon: <BicepsFlexed className="h-4 w-4" />, category: 'goals' },
-      { id: 'g3', text: "Improve endurance", icon: <Activity className="h-4 w-4" />, category: 'goals' },
-    ]
-  },
-  progress: {
-    content: "You're making great progress! Here's your fitness summary:\n\n- **Workouts completed:** 8 in the last 14 days\n- **Current streak:** 3 days\n- **Total XP earned:** 450\n- **Most consistent workout:** Upper body training\n- **Area to improve:** Cardio sessions (only 2 completed)\n\nKeep up the consistency! Adding one more cardio session per week could help balance your program and improve overall fitness outcomes.",
-    followUp: [
-      { id: 'p1', text: "View detailed stats", icon: <BarChart className="h-4 w-4" />, category: 'goals' },
-      { id: 'p2', text: "Improve cardio routine", icon: <Heart className="h-4 w-4" />, category: 'workout' },
-    ]
-  },
-  diet: {
-    content: "Nutrition is crucial for fitness success. Here's a balanced approach based on your goals:\n\n**Daily Macronutrient Targets:**\n- Protein: 1.6-2.0g per kg of bodyweight\n- Carbohydrates: 3-5g per kg (higher on training days)\n- Fats: 0.8-1.0g per kg\n\n**Key Principles:**\n- Eat whole, minimally processed foods 80% of the time\n- Include protein with every meal\n- Stay hydrated (aim for 3L water daily)\n- Time larger carb portions around workouts\n- Consume colorful vegetables with most meals\n\nWould you like sample meal ideas or a full meal plan?",
-    followUp: [
-      { id: 'd1', text: "Pre-workout meal ideas", icon: <Clock className="h-4 w-4" />, category: 'diet' },
-      { id: 'd2', text: "Post-workout nutrition", icon: <Dumbbell className="h-4 w-4" />, category: 'diet' },
-      { id: 'd3', text: "Full day meal plan", icon: <Info className="h-4 w-4" />, category: 'diet' },
-    ]
-  }
-};
+// Sample suggestions to get the user started
+const defaultSuggestions: Suggestion[] = [
+  { id: '1', text: "Create a personalized workout", icon: <Dumbbell className="h-4 w-4" />, category: 'workout' },
+  { id: '2', text: "Help me improve my fitness", icon: <Activity className="h-4 w-4" />, category: 'goals' },
+  { id: '3', text: "Nutrition advice for gains", icon: <Heart className="h-4 w-4" />, category: 'diet' },
+  { id: '4', text: "Track my fitness progress", icon: <ArrowRight className="h-4 w-4" />, category: 'goals' },
+];
 
 const Trainer = () => {
   const navigate = useNavigate();
@@ -106,56 +46,57 @@ const Trainer = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentSuggestions, setCurrentSuggestions] = useState<Suggestion[]>([]);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      type: 'ai',
-      content: aiResponses.default.content,
-      timestamp: new Date(),
-    },
-  ]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [currentSuggestions, setCurrentSuggestions] = useState<Suggestion[]>(defaultSuggestions);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [exerciseVideos, setExerciseVideos] = useState([]);
   const [workoutData, setWorkoutData] = useState([]);
-
-  const defaultSuggestions: Suggestion[] = [
-    { id: '1', text: "Create a personalized workout", icon: <Dumbbell className="h-4 w-4" />, category: 'workout' },
-    { id: '2', text: "Help me improve my fitness", icon: <Activity className="h-4 w-4" />, category: 'goals' },
-    { id: '3', text: "Nutrition advice for gains", icon: <Heart className="h-4 w-4" />, category: 'diet' },
-    { id: '4', text: "Track my fitness progress", icon: <ArrowRight className="h-4 w-4" />, category: 'goals' },
-  ];
-
-  useEffect(() => {
-    setCurrentSuggestions([
-      ...defaultSuggestions,
-      ...(aiResponses.default.followUp || [])
-    ]);
-  }, []);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
+  // Check for authentication
   useEffect(() => {
-    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-    if (!isLoggedIn) {
-      navigate('/login');
-    }
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate('/login');
+        return;
+      }
+      
+      setUserId(session.user.id);
+      
+      // After confirming auth, fetch initial data
+      fetchChatHistory();
+      fetchExerciseVideos();
+      fetchWorkoutData();
+      
+      // Add initial greeting if no messages
+      if (messages.length === 0) {
+        setMessages([{
+          id: '1',
+          type: 'ai',
+          content: "Hi! I'm your AI fitness coach. I can help with workout plans, nutrition advice, and fitness tracking. What would you like help with today?",
+          timestamp: new Date(),
+        }]);
+      }
+    };
+    
+    checkAuth();
   }, [navigate]);
 
-  useEffect(() => {
-    fetchChatHistory();
-    fetchExerciseVideos();
-    fetchWorkoutData();
-  }, []);
-
   const fetchChatHistory = async () => {
+    if (!userId) return;
+    
     const { data, error } = await supabase
       .from('ai_trainer_chats')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: true });
 
-    if (!error && data) {
+    if (!error && data && data.length > 0) {
       setMessages(data.map(msg => ({
         id: msg.id,
         type: msg.is_user ? 'user' : 'ai',
@@ -169,7 +110,8 @@ const Trainer = () => {
     const { data, error } = await supabase
       .from('exercise_videos')
       .select('*')
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false })
+      .limit(3);
 
     if (!error && data) {
       setExerciseVideos(data);
@@ -177,9 +119,12 @@ const Trainer = () => {
   };
 
   const fetchWorkoutData = async () => {
+    if (!userId) return;
+    
     const { data, error } = await supabase
       .from('user_workout_progress')
       .select('*')
+      .eq('user_id', userId)
       .order('workout_date', { ascending: true })
       .limit(7);
 
@@ -189,41 +134,23 @@ const Trainer = () => {
         duration: workout.duration,
         calories: workout.calories || 0
       })));
+    } else if (error) {
+      console.error('Error fetching workout data:', error);
+      // Use sample data if no data exists yet
+      setWorkoutData([
+        { date: 'Mon', duration: 45, calories: 320 },
+        { date: 'Tue', duration: 30, calories: 250 },
+        { date: 'Wed', duration: 0, calories: 0 },
+        { date: 'Thu', duration: 60, calories: 450 },
+        { date: 'Fri', duration: 25, calories: 200 },
+        { date: 'Sat', duration: 90, calories: 650 },
+        { date: 'Sun', duration: 20, calories: 180 }
+      ]);
     }
   };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const findAIResponse = (input: string): { content: string, followUp?: Suggestion[] } => {
-    const lowerInput = input.toLowerCase();
-    
-    for (const [key, response] of Object.entries(aiResponses)) {
-      if (lowerInput.includes(key.toLowerCase())) {
-        return response;
-      }
-    }
-    
-    if (lowerInput.includes('workout') || lowerInput.includes('exercise') || lowerInput.includes('train')) {
-      return aiResponses.workouts;
-    } else if (lowerInput.includes('upper body') || lowerInput.includes('arms') || lowerInput.includes('chest') || lowerInput.includes('shoulders')) {
-      return aiResponses["upper body"];
-    } else if (lowerInput.includes('lower body') || lowerInput.includes('legs') || lowerInput.includes('squats')) {
-      return aiResponses["lower body"];
-    } else if (lowerInput.includes('cardio') || lowerInput.includes('running') || lowerInput.includes('hiit')) {
-      return aiResponses.cardio;
-    } else if (lowerInput.includes('routine') || lowerInput.includes('plan') || lowerInput.includes('schedule')) {
-      return aiResponses.routine;
-    } else if (lowerInput.includes('goal') || lowerInput.includes('aim') || lowerInput.includes('target')) {
-      return aiResponses.goals;
-    } else if (lowerInput.includes('progress') || lowerInput.includes('tracking') || lowerInput.includes('improve')) {
-      return aiResponses.progress;
-    } else if (lowerInput.includes('diet') || lowerInput.includes('eat') || lowerInput.includes('food') || lowerInput.includes('nutrition')) {
-      return aiResponses.diet;
-    }
-    
-    return aiResponses.default;
   };
 
   const simulateTyping = (message: Message, callback: () => void) => {
@@ -237,7 +164,7 @@ const Trainer = () => {
     
     let i = 0;
     const fullContent = message.content;
-    const typingSpeed = 10;
+    const typingSpeed = 10; // Adjust speed as needed
     const minDisplayTime = 800;
     
     const startTime = Date.now();
@@ -278,8 +205,24 @@ const Trainer = () => {
     typeChar();
   };
 
+  const processUserMessage = async (userText: string) => {
+    try {
+      // Call Supabase Edge Function to process the message with AI
+      const { data, error } = await supabase.functions.invoke('fitness-ai-chat', {
+        body: { message: userText, userId }
+      });
+      
+      if (error) throw error;
+      
+      return data.reply;
+    } catch (error) {
+      console.error('Error processing message:', error);
+      return "I'm having trouble connecting to my fitness database right now. Can you try again in a moment? 🏋️‍♂️";
+    }
+  };
+
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !userId) return;
     
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -293,48 +236,109 @@ const Trainer = () => {
     setIsLoading(true);
     
     try {
+      // Store user message in Supabase
       await supabase.from('ai_trainer_chats').insert({
         message: input,
-        is_user: true
+        is_user: true,
+        user_id: userId
       });
-
-      const responseData = findAIResponse(input);
+      
+      // Process message with AI
+      const aiResponse = await processUserMessage(input);
+      
+      // Generate new relevant suggestions based on the context
+      const newSuggestions = generateRelevantSuggestions(input, aiResponse);
+      if (newSuggestions.length > 0) {
+        setCurrentSuggestions([
+          ...newSuggestions,
+          ...defaultSuggestions.slice(0, 2)
+        ]);
+      }
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: responseData.content,
+        content: aiResponse,
         timestamp: new Date(),
       };
       
-      if (responseData.followUp && responseData.followUp.length > 0) {
-        setCurrentSuggestions([
-          ...responseData.followUp,
-          ...defaultSuggestions.slice(0, 2)
-        ]);
-      } else {
-        setCurrentSuggestions(defaultSuggestions);
-      }
-      
+      // Simulate typing effect
       simulateTyping(aiMessage, () => {
         setIsLoading(false);
       });
       
+      // Store AI response in Supabase
       await supabase.from('ai_trainer_chats').insert({
-        message: aiMessage.content,
-        is_user: false
+        message: aiResponse,
+        is_user: false,
+        user_id: userId
       });
-      
-      setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
+      console.error('Error in chat process:', error);
       toast({
         title: "Error",
         description: "Failed to get response from AI trainer.",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
+  };
+
+  // Generate contextually relevant suggestions based on the conversation
+  const generateRelevantSuggestions = (userInput: string, aiResponse: string): Suggestion[] => {
+    const lowerInput = userInput.toLowerCase();
+    const lowerResponse = aiResponse.toLowerCase();
+    const suggestions: Suggestion[] = [];
+    
+    // Workout related suggestions
+    if (lowerInput.includes('workout') || lowerInput.includes('exercise') || lowerResponse.includes('workout plan')) {
+      suggestions.push({ 
+        id: 'w1', 
+        text: "Show me upper body exercises", 
+        icon: <BicepsFlexed className="h-4 w-4" />, 
+        category: 'workout' 
+      });
+      suggestions.push({ 
+        id: 'w2', 
+        text: "I need a cardio routine", 
+        icon: <Activity className="h-4 w-4" />, 
+        category: 'workout' 
+      });
+    }
+    
+    // Nutrition related suggestions
+    if (lowerInput.includes('diet') || lowerInput.includes('food') || lowerInput.includes('eat') || lowerResponse.includes('nutrition')) {
+      suggestions.push({ 
+        id: 'd1', 
+        text: "Protein-rich meal ideas", 
+        icon: <Heart className="h-4 w-4" />, 
+        category: 'diet' 
+      });
+      suggestions.push({ 
+        id: 'd2', 
+        text: "Post-workout nutrition", 
+        icon: <Info className="h-4 w-4" />, 
+        category: 'diet' 
+      });
+    }
+    
+    // Goal related suggestions
+    if (lowerInput.includes('goal') || lowerInput.includes('target') || lowerResponse.includes('goal')) {
+      suggestions.push({ 
+        id: 'g1', 
+        text: "Set a weight loss goal", 
+        icon: <Weight className="h-4 w-4" />, 
+        category: 'goals' 
+      });
+      suggestions.push({ 
+        id: 'g2', 
+        text: "Track my progress", 
+        icon: <BarChart className="h-4 w-4" />, 
+        category: 'goals' 
+      });
+    }
+    
+    return suggestions;
   };
 
   const handleSuggestionClick = (suggestion: Suggestion) => {
@@ -347,7 +351,7 @@ const Trainer = () => {
   const handleVoiceInput = () => {
     toast({
       title: "Voice Input",
-      description: "Voice input feature is coming soon!",
+      description: "Voice input feature is coming soon! 🎤",
     });
   };
 
@@ -469,7 +473,7 @@ const Trainer = () => {
                   <Button
                     id="send-button"
                     onClick={handleSend}
-                    disabled={!input.trim() || isLoading}
+                    disabled={!input.trim() || isLoading || !userId}
                     className="rounded-full h-10 w-10 p-0 bg-fitPurple-600 hover:bg-fitPurple-700 transition-all active:scale-95"
                   >
                     <Send className="h-5 w-5" />
