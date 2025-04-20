@@ -1,184 +1,86 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/components/ui/use-toast';
-import MainLayout from '@/components/layout/MainLayout';
 import { useUser } from '@/contexts/UserContext';
-import { 
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage
-} from '@/components/ui/form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { GoogleButton } from '@/components/auth/GoogleButton';
-
-// Form validation schema
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
+import AccountForm from '@/components/auth/AccountForm';
+import GoogleButton from '@/components/auth/GoogleButton';
+import { Separator } from '@/components/ui/separator';
 
 const Login = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { toast } = useToast();
-  const { login, isLoggedIn } = useUser();
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Get the return path from location state, default to dashboard
-  const from = (location.state as { from?: string })?.from || '/dashboard';
+  const { isLoggedIn } = useUser();
 
-  // Redirect if already logged in
-  useEffect(() => {
+  React.useEffect(() => {
     if (isLoggedIn) {
-      navigate(from, { replace: true });
+      navigate('/dashboard');
     }
-  }, [isLoggedIn, navigate, from]);
-
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-  });
-
-  const onSubmit = async (values: LoginFormValues) => {
-    setIsLoading(true);
-    
-    try {
-      await login(values.email, values.password);
-      
-      toast({
-        title: "Login successful!",
-        description: "Welcome back to FitBot.",
-      });
-      
-      // Navigate to the return path after login
-      navigate(from, { replace: true });
-    } catch (error: any) {
-      toast({
-        title: "Login failed",
-        description: error.message || "Please check your credentials and try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [isLoggedIn, navigate]);
 
   return (
-    <MainLayout>
-      <div className="flex min-h-[calc(100vh-4rem)] flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gray-50 dark:bg-fitDark-900">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-            Welcome back to FitBot
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-            Sign in to continue your fitness journey
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-fitPurple-500 via-fitPurple-600 to-fitPurple-700 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Floating shapes for background animation */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-white/10 rounded-full mix-blend-overlay animate-pulse-scale" />
+          <div className="absolute top-1/3 right-1/3 w-96 h-96 bg-white/5 rounded-full mix-blend-overlay animate-pulse-scale delay-300" />
+          <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-white/10 rounded-full mix-blend-overlay animate-pulse-scale delay-700" />
         </div>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white dark:bg-fitDark-800 py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email address</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type="email"
-                          autoComplete="email"
-                          disabled={isLoading}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+        <Card className="w-full backdrop-blur-xl bg-white/90 dark:bg-fitDark-800/90 shadow-2xl animate-slide-up">
+          <CardContent className="pt-8 pb-6 px-6">
+            <div className="text-center mb-8 animate-fade-in">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-fitPurple-600 to-fitPurple-400 bg-clip-text text-transparent">
+                Welcome Back
+              </h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-2">
+                Sign in to continue your fitness journey
+              </p>
+            </div>
 
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel>Password</FormLabel>
-                        <div className="text-sm">
-                          <Link 
-                            to="/forgot-password" 
-                            className="font-medium text-fitPurple-600 hover:text-fitPurple-500 dark:text-fitPurple-400 dark:hover:text-fitPurple-300"
-                          >
-                            Forgot your password?
-                          </Link>
-                        </div>
-                      </div>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type="password"
-                          autoComplete="current-password"
-                          disabled={isLoading}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Signing in...' : 'Sign in'}
-                </Button>
-              </form>
-            </Form>
-
-            <div className="mt-6">
+            <div className="space-y-6">
+              <GoogleButton className="w-full animate-slide-up delay-100" />
+              
               <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300 dark:border-fitDark-600" />
-                </div>
+                <Separator className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <span className="w-full border-t border-gray-200 dark:border-gray-700" />
+                </Separator>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white dark:bg-fitDark-800 text-gray-500 dark:text-gray-400">
+                  <span className="px-2 text-gray-500 dark:text-gray-400 bg-white dark:bg-fitDark-800">
                     Or continue with
                   </span>
                 </div>
               </div>
 
-              <div className="mt-6">
-                <GoogleButton />
+              <div className="animate-slide-up delay-200">
+                <AccountForm mode="login" />
+              </div>
+
+              <div className="text-center space-y-4 animate-slide-up delay-300">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Don't have an account?{' '}
+                  <Button
+                    variant="link"
+                    className="text-fitPurple-600 dark:text-fitPurple-400 hover:text-fitPurple-700 dark:hover:text-fitPurple-300 p-0"
+                    onClick={() => navigate('/signup')}
+                  >
+                    Sign up
+                  </Button>
+                </p>
+                <Button
+                  variant="link"
+                  className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                  onClick={() => navigate('/forgot-password')}
+                >
+                  Forgot your password?
+                </Button>
               </div>
             </div>
-
-            <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-              Don't have an account?{' '}
-              <Link
-                to="/signup"
-                className="font-medium text-fitPurple-600 hover:text-fitPurple-500 dark:text-fitPurple-400 dark:hover:text-fitPurple-300"
-              >
-                Sign up
-              </Link>
-            </p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
-    </MainLayout>
+    </div>
   );
 };
 

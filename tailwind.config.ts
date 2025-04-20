@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -128,29 +127,24 @@ export default {
 					}
 				},
 				'pulse-scale': {
-					'0%, 100%': { transform: 'scale(1)' },
-					'50%': { transform: 'scale(1.05)' },
+					'0%, 100%': { transform: 'scale(1)', opacity: '0.5' },
+					'50%': { transform: 'scale(1.1)', opacity: '0.8' },
 				},
 				'slide-up': {
 					'0%': { transform: 'translateY(10px)', opacity: '0' },
 					'100%': { transform: 'translateY(0)', opacity: '1' },
 				},
-				'slide-down': {
-					'0%': { transform: 'translateY(-10px)', opacity: '0' },
-					'100%': { transform: 'translateY(0)', opacity: '1' },
+				'fade-in': {
+					'0%': { opacity: '0' },
+					'100%': { opacity: '1' },
 				},
-				'confetti': {
-					'0%': { transform: 'translateY(0) rotate(0)', opacity: '1' },
-					'100%': { transform: 'translateY(-100px) rotate(720deg)', opacity: '0' },
-				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
-				'pulse-scale': 'pulse-scale 2s ease-in-out infinite',
-				'slide-up': 'slide-up 0.3s ease-out',
-				'slide-down': 'slide-down 0.3s ease-out',
-				'confetti': 'confetti 1s ease-out forwards',
+				'pulse-scale': 'pulse-scale 4s ease-in-out infinite',
+				'slide-up': 'slide-up 0.5s ease-out forwards',
+				'fade-in': 'fade-in 0.5s ease-out forwards',
 			}
 		}
 	},
