@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -140,11 +139,41 @@ const ProfileSettings = () => {
     }
   };
 
+  const createAvatarBucket = async () => {
+    try {
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      
+      if (listError) {
+        console.error("Error listing buckets:", listError);
+        return { success: false, error: listError };
+      }
+      
+      const bucketExists = buckets?.some(bucket => bucket.name === 'avatars');
+      if (bucketExists) {
+        console.log("Avatars bucket already exists");
+        return { success: true };
+      }
+      
+      const { error: createError } = await supabase.storage.createBucket('avatars', {
+        public: true,
+        fileSizeLimit: 1024 * 1024 * 2 // 2MB
+      });
+      
+      if (createError) {
+        console.error("Error creating bucket:", createError);
+        return { success: false, error: createError };
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error("Unexpected error creating bucket:", error);
+      return { success: false, error };
+    }
+  };
+
   const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     setIsLoading(true);
     try {
@@ -157,59 +186,20 @@ const ProfileSettings = () => {
         return;
       }
 
-      // Check if avatars bucket exists
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      
-      if (bucketsError) {
-        console.error("Error listing buckets:", bucketsError);
+      const bucketResult = await createAvatarBucket();
+      if (!bucketResult.success) {
+        const errorMessage = bucketResult.error?.message || "Failed to prepare storage for avatars.";
         toast({
-          title: "Error",
-          description: "Failed to check storage buckets.",
+          title: "Storage Error",
+          description: errorMessage,
           variant: "destructive",
         });
         return;
       }
-
-      // Create bucket if it doesn't exist
-      const avatarBucketExists = buckets?.some(bucket => bucket.name === 'avatars');
       
-      if (!avatarBucketExists) {
-        console.log("Creating avatars bucket");
-        try {
-          const { error: bucketError } = await supabase.storage.createBucket('avatars', {
-            public: true,
-            fileSizeLimit: 1024 * 1024 * 2 // 2MB
-          });
-          
-          if (bucketError) {
-            throw bucketError;
-          }
-        } catch (bucketError) {
-          console.error("Bucket creation error:", bucketError);
-          
-          // More specific error message based on the error
-          let errorMessage = "Failed to create storage for avatars.";
-          if ((bucketError as any)?.message?.includes('duplicate')) {
-            errorMessage = "Avatar storage already exists. Please try again.";
-          } else if ((bucketError as any)?.message?.includes('permission')) {
-            errorMessage = "Permission denied to create avatar storage.";
-          }
-          
-          toast({
-            title: "Error",
-            description: errorMessage,
-            variant: "destructive",
-          });
-          return;
-        }
-      }
-
-      // Continue with upload process
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      // Upload file to the bucket
+      const filePath = `${user.id}.${fileExt}`;
+      
       try {
         const { error: uploadError } = await supabase.storage
           .from('avatars')
@@ -219,53 +209,49 @@ const ProfileSettings = () => {
           });
 
         if (uploadError) {
-          throw uploadError;
+          console.error("Upload error:", uploadError);
+          toast({
+            title: "Upload Failed",
+            description: `Failed to upload avatar: ${uploadError.message}`,
+            variant: "destructive",
+          });
+          return;
         }
       } catch (uploadError) {
-        console.error("File upload error:", uploadError);
+        console.error("Upload exception:", uploadError);
         toast({
-          title: "Error",
-          description: "Failed to upload avatar.",
+          title: "Upload Exception",
+          description: "An unexpected error occurred during upload.",
           variant: "destructive",
         });
         return;
       }
 
-      // Update profile with the avatar URL
-      try {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            avatar_url: filePath,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id);
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          avatar_url: filePath,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
 
-        if (updateError) {
-          throw updateError;
-        }
-      } catch (updateError) {
+      if (updateError) {
         console.error("Profile update error:", updateError);
         toast({
           title: "Error",
-          description: "Failed to update profile with avatar.",
+          description: "Avatar uploaded but failed to update profile.",
           variant: "destructive",
         });
         return;
       }
       
-      // Get the public URL of the uploaded avatar
-      try {
-        const { data: storageData } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(filePath);
-          
-        if (storageData) {
-          setAvatarUrl(storageData.publicUrl);
-        }
-      } catch (urlError) {
-        console.error("Error getting avatar URL:", urlError);
-        // Don't return, as the upload was successful even if we can't get the URL right now
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+      
+      if (urlData) {
+        setAvatarUrl(urlData.publicUrl);
+        console.log("Avatar URL set to:", urlData.publicUrl);
       }
 
       toast({
@@ -273,7 +259,7 @@ const ProfileSettings = () => {
         description: "Avatar updated successfully.",
       });
     } catch (error) {
-      console.error("Unexpected error during avatar upload:", error);
+      console.error("Unexpected avatar upload error:", error);
       toast({
         title: "Error",
         description: "An unexpected error occurred during avatar upload.",
@@ -328,7 +314,6 @@ const ProfileSettings = () => {
           </div>
         </div>
 
-        {/* Wrap the form in a Form component */}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
