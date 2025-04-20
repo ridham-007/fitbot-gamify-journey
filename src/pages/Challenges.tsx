@@ -99,14 +99,30 @@ const CreateChallengeDialog = ({ onCreateSuccess }: { onCreateSuccess: () => voi
         console.error('Challenge creation error:', error);
         throw error;
       }
+      
+      if (data) {
+        const { error: joinError } = await supabase
+          .from('user_challenges')
+          .insert({
+            user_id: user.id,
+            challenge_id: data.id,
+            progress: 0
+          });
+        
+        if (joinError) {
+          console.error('Error auto-joining challenge:', joinError);
+        }
+      }
+      
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['userChallenges'] });
       
       toast({
         title: "Challenge Created!",
-        description: "Your challenge has been created successfully.",
+        description: "Your challenge has been created successfully and you're automatically joined.",
       });
       
       setIsOpen(false);

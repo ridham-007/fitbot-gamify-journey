@@ -5,11 +5,14 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import ProfileStats from './ProfileStats';
 import { motion } from 'framer-motion';
-import { Star, Award, Sparkles } from 'lucide-react';
+import { Star, Award, Sparkles, Trophy } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 const UserProfile = () => {
   const { user, userLevel, userXp, streak } = useUser();
   const [animated, setAnimated] = useState(false);
+  const navigate = useNavigate();
   
   useEffect(() => {
     const timer = setTimeout(() => setAnimated(true), 100);
@@ -35,6 +38,16 @@ const UserProfile = () => {
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0, transition: { duration: 0.6 } }
+  };
+
+  const pulseAnimation = {
+    scale: [1, 1.05, 1],
+    opacity: [0.7, 1, 0.7],
+    transition: { 
+      duration: 2,
+      repeat: Infinity,
+      ease: "easeInOut" 
+    }
   };
 
   return (
@@ -130,6 +143,19 @@ const UserProfile = () => {
           streak={streak}
           workoutsCompleted={20}
         />
+        
+        <motion.div 
+          animate={pulseAnimation}
+          className="mt-6"
+        >
+          <Button 
+            onClick={() => navigate('/challenges')}
+            className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700"
+          >
+            <Trophy className="mr-2 h-5 w-5 text-yellow-300" />
+            View My Challenges
+          </Button>
+        </motion.div>
       </motion.div>
     </motion.div>
   );

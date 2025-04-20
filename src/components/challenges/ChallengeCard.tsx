@@ -25,6 +25,7 @@ export type ChallengeType = {
   isJoined?: boolean;
   xpCost?: number;
   created_by?: string | null;
+  isCreatedByUser?: boolean;
 };
 
 type ChallengeCardProps = {
@@ -140,6 +141,11 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, onJoin }) => {
               <Badge className={`${getDifficultyColor(challenge.difficulty)}`}>
                 {challenge.difficulty}
               </Badge>
+              {challenge.isCreatedByUser && (
+                <Badge variant="outline" className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+                  Created by you
+                </Badge>
+              )}
             </div>
           </div>
           <div className="flex items-center">
@@ -187,6 +193,11 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, onJoin }) => {
           <Button variant="outline" className="w-full">
             <Award className="mr-2 h-4 w-4" />
             View Details
+          </Button>
+        ) : challenge.isCreatedByUser ? (
+          <Button variant="outline" className="w-full" disabled>
+            <Award className="mr-2 h-4 w-4" />
+            Your Challenge
           </Button>
         ) : (
           <Button 
