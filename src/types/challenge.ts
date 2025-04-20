@@ -6,14 +6,14 @@ export interface ChallengeType {
   category: string;
   difficulty: string;
   duration: number;
-  startDate: string;
-  endDate: string;
-  xpReward: number;
-  joinPriceXp: number;
-  firstPlaceReward?: number;
-  secondPlaceReward?: number;
-  thirdPlaceReward?: number;
-  createdBy: string | null;
+  start_date: string;  // Changed from startDate
+  end_date: string;    // Changed from endDate
+  xp_reward: number;
+  join_price_xp: number;
+  first_place_reward?: number;
+  second_place_reward?: number;
+  third_place_reward?: number;
+  created_by: string | null;
   isJoined?: boolean;
   progress?: number;
   participants?: number;

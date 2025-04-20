@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,7 +8,8 @@ import { useToast } from '@/components/ui/use-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import { 
   Send, Mic, Dumbbell, Info, User, Plus, ArrowRight, 
-  Check, Heart, Clock, Play, Activity, Weight, BicepsFlexed
+  Check, Heart, Clock, Play, Activity, Weight, BicepsFlexed,
+  BarChart
 } from 'lucide-react';
 
 type Message = {
@@ -83,7 +83,7 @@ const aiResponses: Record<string, {content: string, followUp?: Suggestion[]}> = 
   progress: {
     content: "You're making great progress! Here's your fitness summary:\n\n- **Workouts completed:** 8 in the last 14 days\n- **Current streak:** 3 days\n- **Total XP earned:** 450\n- **Most consistent workout:** Upper body training\n- **Area to improve:** Cardio sessions (only 2 completed)\n\nKeep up the consistency! Adding one more cardio session per week could help balance your program and improve overall fitness outcomes.",
     followUp: [
-      { id: 'p1', text: "View detailed stats", icon: <BarChart2 className="h-4 w-4" />, category: 'goals' },
+      { id: 'p1', text: "View detailed stats", icon: <BarChart className="h-4 w-4" />, category: 'goals' },
       { id: 'p2', text: "Improve cardio routine", icon: <Heart className="h-4 w-4" />, category: 'workout' },
     ]
   },
