@@ -5,18 +5,13 @@ import { supabase } from '@/integrations/supabase/client';
 import MainLayout from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trophy, Search, Filter, Plus, Award, Crown } from 'lucide-react';
+import { Trophy, Search, Filter } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { cn } from '@/lib/utils';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ChallengeCard from '@/components/challenges/ChallengeCard';
+import CreateChallengeDialog from '@/components/challenges/CreateChallengeDialog';
+import ChallengeLeaderboardDialog from '@/components/challenges/ChallengeLeaderboardDialog';
 
 interface Challenge {
   id: string;
@@ -840,4 +835,27 @@ const Challenges = () => {
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <div key={i} className="bg-gray-50 dark:bg-gray-700/20 p-6 rounded-lg animate-pulse">
                       <div className="h-6 w-2/3 bg-gray-200 dark:bg-gray-600 rounded mb-4"></div>
-                      <div className="
+                      <div className="h-20 bg-gray-200 dark:bg-gray-600 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredChallenges.map((challenge) => (
+                    <ChallengeCard
+                      key={challenge.id}
+                      challenge={challenge}
+                      onJoin={() => handleJoinChallenge(challenge.id, challenge.xpCost || 0)}
+                    />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </MainLayout>
+  );
+};
+
+export default Challenges;
