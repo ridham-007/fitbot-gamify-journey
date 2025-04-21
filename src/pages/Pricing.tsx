@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import MainLayout from '@/components/layout/MainLayout';
@@ -71,13 +70,12 @@ const PricingTier = ({
 }) => {
   const handleCheckout = async () => {
     try {
-      // Get current user - might be null for non-logged in users
       const { data: { user } } = await supabase.auth.getUser();
       
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: JSON.stringify({ 
           tier: name, 
-          userId: user?.id // This can be null for non-logged in users
+          userId: user?.id 
         })
       });
 
@@ -145,8 +143,7 @@ const Pricing = () => {
   
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
-  // Fetch pricing data from Supabase
-  const { data: products, isLoading, error } = useQuery({
+  const { data: products } = useQuery({
     queryKey: ['stripe-products'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -159,7 +156,6 @@ const Pricing = () => {
     }
   });
 
-  // Check if user is logged in
   useEffect(() => {
     const checkAuthStatus = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -169,7 +165,6 @@ const Pricing = () => {
     checkAuthStatus();
   }, []);
 
-  // Check subscription status for logged in users
   useEffect(() => {
     const checkSubscription = async () => {
       try {
@@ -200,44 +195,8 @@ const Pricing = () => {
     }
   }, [isLoggedIn]);
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <MainLayout>
-        <div className="py-20 px-4 max-w-7xl mx-auto text-center">
-          <h1 className="text-2xl font-bold">Loading pricing plans...</h1>
-        </div>
-      </MainLayout>
-    );
-  }
-
-  // Show error state
-  if (error || !products) {
-    return (
-      <MainLayout>
-        <div className="py-20 px-4 max-w-7xl mx-auto text-center">
-          <h1 className="text-2xl font-bold text-red-500">Error loading pricing plans</h1>
-          <p className="mt-4">Please try again later</p>
-        </div>
-      </MainLayout>
-    );
-  }
-
-  // Add the basic plan if it's not in the products
-  const allProducts = products.some(p => p.name === 'Basic') 
-    ? products 
-    : [
-        { 
-          name: 'Basic', 
-          description: 'Start your fitness journey', 
-          price_amount: 0, 
-          stripe_price_id: 'basic_free'
-        },
-        ...products
-      ];
-
   return (
-    <MainLayout isLoggedIn={isLoggedIn}>
+    <MainLayout>
       <div className="py-20 px-4 max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold mb-4">Simple, Transparent Pricing</h1>
@@ -247,7 +206,7 @@ const Pricing = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {allProducts.map((product, index) => (
+          {products?.map((product, index) => (
             <PricingTier 
               key={product.stripe_price_id}
               name={product.name}
