@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import MainLayout from '@/components/layout/MainLayout';
@@ -21,6 +20,35 @@ const formatPrice = (amount: number, currency: string = 'USD') => {
     currency,
     minimumFractionDigits: 0,
   }).format(amount / 100);
+};
+
+const tierFeatures = {
+  Basic: [
+    "Basic workout tracking",
+    "AI workout suggestions",
+    "Progress tracking",
+    "Public leaderboard access",
+    "Basic achievements"
+  ],
+  Pro: [
+    "Everything in Basic",
+    "Advanced AI training plans",
+    "Custom workout creation",
+    "Premium achievements",
+    "Priority support",
+    "Exclusive challenges",
+    "Progress analytics"
+  ],
+  Elite: [
+    "Everything in Pro",
+    "1-on-1 AI coaching",
+    "Personalized nutrition plans",
+    "VIP challenges",
+    "Advanced analytics",
+    "Team management",
+    "White-label option",
+    "24/7 priority support"
+  ]
 };
 
 const PricingTier = ({ 
@@ -144,36 +172,6 @@ const Pricing = () => {
 
     checkSubscription();
   }, []);
-
-  // Define features for each tier
-  const tierFeatures = {
-    Basic: [
-      "Basic workout tracking",
-      "AI workout suggestions",
-      "Progress tracking",
-      "Public leaderboard access",
-      "Basic achievements"
-    ],
-    Pro: [
-      "Everything in Basic",
-      "Advanced AI training plans",
-      "Custom workout creation",
-      "Premium achievements",
-      "Priority support",
-      "Exclusive challenges",
-      "Progress analytics"
-    ],
-    Elite: [
-      "Everything in Pro",
-      "1-on-1 AI coaching",
-      "Personalized nutrition plans",
-      "VIP challenges",
-      "Advanced analytics",
-      "Team management",
-      "White-label option",
-      "24/7 priority support"
-    ]
-  };
 
   return (
     <MainLayout>
