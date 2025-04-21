@@ -15,6 +15,8 @@ import { supabase } from '@/integrations/supabase/client';
 import ExerciseVideo from '@/components/trainer/ExerciseVideo';
 import WorkoutChart from '@/components/trainer/WorkoutChart';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
+import ChatMessage from '@/components/trainer/ChatMessage';
 
 type Message = {
   id: string;
