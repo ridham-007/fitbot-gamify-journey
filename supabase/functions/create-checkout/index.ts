@@ -37,29 +37,60 @@ serve(async (req) => {
     let priceId;
     switch(tier) {
       case 'Basic':
-        priceId = 'price_basic'; // Replace with actual Stripe price ID
-        break;
+        // Free tier - no need for payment
+        return new Response(JSON.stringify({ 
+          url: `${Deno.env.get('APP_URL') || req.headers.get('origin')}/dashboard?success=true&tier=basic` 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        });
       case 'Pro':
-        priceId = 'price_pro'; // Replace with actual Stripe price ID
+        priceId = Deno.env.get('STRIPE_PRICE_PRO') || 'price_1OsAVrSGJFUlz2xtcMNSfY7V'; // Replace with env var or default value
         break;
       case 'Elite':
-        priceId = 'price_elite'; // Replace with actual Stripe price ID
+        priceId = Deno.env.get('STRIPE_PRICE_ELITE') || 'price_1OsAWBSGJFUlz2xtlNVMUH4L'; // Replace with env var or default value
         break;
       default:
         throw new Error("Invalid tier");
     }
 
+    // Check if user already has a Stripe customer ID
+    const { data: existingSubscriber } = await supabaseClient
+      .from('subscribers')
+      .select('stripe_customer_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    let customer;
+    if (existingSubscriber?.stripe_customer_id) {
+      // Use existing customer ID
+      customer = existingSubscriber.stripe_customer_id;
+    } else {
+      // Look up customer by email
+      const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+      if (customers.data.length > 0) {
+        customer = customers.data[0].id;
+      } else {
+        // Create new customer
+        const newCustomer = await stripe.customers.create({
+          email: user.email,
+          metadata: { userId: user.id }
+        });
+        customer = newCustomer.id;
+      }
+    }
+
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
+      customer: customer,
       client_reference_id: user.id,
-      customer_email: user.email,
       line_items: [{
         price: priceId,
         quantity: 1,
       }],
-      success_url: `${Deno.env.get('APP_URL')}/dashboard?success=true`,
-      cancel_url: `${Deno.env.get('APP_URL')}/pricing?canceled=true`,
+      success_url: `${Deno.env.get('APP_URL') || req.headers.get('origin')}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${Deno.env.get('APP_URL') || req.headers.get('origin')}/pricing?canceled=true`,
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
