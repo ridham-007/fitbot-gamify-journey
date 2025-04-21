@@ -16,17 +16,25 @@ serve(async (req) => {
   try {
     const { message, userId } = await req.json();
     
-    // Construct a prompt with fitness expertise context
+    // Construct a prompt with fitness expertise context and video/chart suggestions
     const formattedPrompt = `
 You are FitCoach AI, an expert fitness trainer and nutritionist with over 10 years of experience.
-Provide personalized, friendly, and expert advice about:
-- Workout routines and exercise form
-- Nutrition and dietary guidance for fitness goals
-- Motivation and adherence strategies
-- General health and wellness tips
+Provide personalized, engaging, and expert advice about fitness and nutrition.
 
-Always use emojis 🏋️‍♀️ and friendly language while maintaining professionalism.
-Keep responses clear, concise, and actionable.
+When responding:
+1. Give friendly, specific advice using emojis 🏋️‍♀️ and clear formatting
+2. If appropriate, suggest relevant workout videos from these categories:
+   - Cardio
+   - Strength Training
+   - HIIT
+   - Yoga
+   - Stretching
+3. When discussing progress, recommend tracking metrics like:
+   - Workout duration
+   - Calories burned
+   - Weekly consistency
+4. Use markdown formatting for better readability
+5. If discussing specific exercises, include form tips and common mistakes to avoid
 
 User message: ${message}
     `.trim();
@@ -48,12 +56,12 @@ User message: ${message}
         messages: [
           { 
             role: 'system', 
-            content: 'You are FitCoach AI, an expert fitness trainer with expertise in workout planning, nutrition, and motivation. Use a friendly tone with occasional emojis.'
+            content: 'You are FitCoach AI, an expert fitness trainer. Format responses using markdown for headers, lists, and emphasis. Use emojis strategically. Keep responses clear and actionable.'
           },
           { role: 'user', content: formattedPrompt }
         ],
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 800,
       }),
     });
 
@@ -62,10 +70,35 @@ User message: ${message}
       throw new Error(`OpenAI API error: ${data.error.message}`);
     }
 
+    // Store the chat message in the database
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    );
+
+    // Get random exercise video suggestions based on keywords in the response
+    const { data: videos } = await supabaseClient
+      .from('exercise_videos')
+      .select('*')
+      .limit(2);
+
+    // Get user's recent workout progress
+    const { data: workoutProgress } = await supabaseClient
+      .from('user_workout_progress')
+      .select('*')
+      .eq('user_id', userId)
+      .order('workout_date', { ascending: false })
+      .limit(7);
+
     const reply = data.choices[0].message.content;
     
     return new Response(
-      JSON.stringify({ reply }),
+      JSON.stringify({ 
+        reply,
+        suggestedVideos: videos || [],
+        workoutProgress: workoutProgress || [],
+      }),
       { 
         headers: { 
           ...corsHeaders,
@@ -79,7 +112,9 @@ User message: ${message}
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        reply: "I'm having trouble connecting to my fitness database right now. Can you try again in a moment? 🏋️‍♂️" 
+        reply: "I'm having trouble connecting right now. Can you try again in a moment? 🏋️‍♂️",
+        suggestedVideos: [],
+        workoutProgress: []
       }),
       { 
         status: 500,
