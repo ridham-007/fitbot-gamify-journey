@@ -203,7 +203,7 @@ const Pricing = () => {
   // Show loading state
   if (isLoading) {
     return (
-      <MainLayout>
+      <MainLayout isLoggedIn={isLoggedIn}>
         <div className="py-20 px-4 max-w-7xl mx-auto text-center">
           <h1 className="text-2xl font-bold">Loading pricing plans...</h1>
         </div>
@@ -212,9 +212,9 @@ const Pricing = () => {
   }
 
   // Show error state
-  if (error || !products) {
+  if (error || !products || products.length === 0) {
     return (
-      <MainLayout>
+      <MainLayout isLoggedIn={isLoggedIn}>
         <div className="py-20 px-4 max-w-7xl mx-auto text-center">
           <h1 className="text-2xl font-bold text-red-500">Error loading pricing plans</h1>
           <p className="mt-4">Please try again later</p>
@@ -222,19 +222,6 @@ const Pricing = () => {
       </MainLayout>
     );
   }
-
-  // Add the basic plan if it's not in the products
-  const allProducts = products.some(p => p.name === 'Basic') 
-    ? products 
-    : [
-        { 
-          name: 'Basic', 
-          description: 'Start your fitness journey', 
-          price_amount: 0, 
-          stripe_price_id: 'basic_free'
-        },
-        ...products
-      ];
 
   return (
     <MainLayout isLoggedIn={isLoggedIn}>
@@ -247,14 +234,14 @@ const Pricing = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {allProducts.map((product, index) => (
+          {products.map((product, index) => (
             <PricingTier 
               key={product.stripe_price_id}
               name={product.name}
               price={formatPrice(product.price_amount)}
               description={product.description || ''}
               features={tierFeatures[product.name as keyof typeof tierFeatures] || []}
-              isPopular={index === 1}
+              isPopular={product.name === 'Pro'}
               isSubscribed={isLoggedIn && subscriptionStatus.subscriptionTier === product.name}
               priceId={product.stripe_price_id}
             />
