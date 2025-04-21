@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -9,13 +8,29 @@ import { Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 
+interface StripePricing {
+  name: string;
+  description: string | null;
+  price_amount: number;
+  stripe_price_id: string;
+}
+
+const formatPrice = (amount: number, currency: string = 'USD') => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 0,
+  }).format(amount / 100);
+};
+
 const PricingTier = ({ 
   name, 
   price, 
   description, 
   features, 
   isPopular,
-  isSubscribed 
+  isSubscribed,
+  priceId 
 }: { 
   name: string;
   price: string;
@@ -23,6 +38,7 @@ const PricingTier = ({
   features: string[];
   isPopular?: boolean;
   isSubscribed?: boolean;
+  priceId?: string;
 }) => {
   const handleCheckout = async () => {
     try {
@@ -41,7 +57,6 @@ const PricingTier = ({
 
       if (error) throw error;
       
-      // Redirect to Stripe Checkout
       window.location.href = data.url;
     } catch (error) {
       toast.error('Failed to start checkout', { description: error.message });
@@ -93,6 +108,19 @@ const Pricing = () => {
     subscriptionTier?: string | null;
   }>({ subscribed: false });
 
+  const { data: products } = useQuery({
+    queryKey: ['stripe-products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('stripe_products')
+        .select('*')
+        .order('price_amount', { ascending: true });
+      
+      if (error) throw error;
+      return data as StripePricing[];
+    }
+  });
+
   useEffect(() => {
     const checkSubscription = async () => {
       try {
@@ -117,50 +145,35 @@ const Pricing = () => {
     checkSubscription();
   }, []);
 
-  const tiers = [
-    {
-      name: "Basic",
-      price: "$0",
-      description: "Perfect for getting started with fitness tracking",
-      features: [
-        "Basic workout tracking",
-        "AI workout suggestions",
-        "Progress tracking",
-        "Public leaderboard access",
-        "Basic achievements"
-      ]
-    },
-    {
-      name: "Pro",
-      price: "$9.99",
-      description: "Unlock advanced features for serious fitness enthusiasts",
-      features: [
-        "Everything in Basic",
-        "Advanced AI training plans",
-        "Custom workout creation",
-        "Premium achievements",
-        "Priority support",
-        "Exclusive challenges",
-        "Progress analytics"
-      ],
-      isPopular: true
-    },
-    {
-      name: "Elite",
-      price: "$19.99",
-      description: "The ultimate fitness experience for professionals",
-      features: [
-        "Everything in Pro",
-        "1-on-1 AI coaching",
-        "Personalized nutrition plans",
-        "VIP challenges",
-        "Advanced analytics",
-        "Team management",
-        "White-label option",
-        "24/7 priority support"
-      ]
-    }
-  ];
+  // Define features for each tier
+  const tierFeatures = {
+    Basic: [
+      "Basic workout tracking",
+      "AI workout suggestions",
+      "Progress tracking",
+      "Public leaderboard access",
+      "Basic achievements"
+    ],
+    Pro: [
+      "Everything in Basic",
+      "Advanced AI training plans",
+      "Custom workout creation",
+      "Premium achievements",
+      "Priority support",
+      "Exclusive challenges",
+      "Progress analytics"
+    ],
+    Elite: [
+      "Everything in Pro",
+      "1-on-1 AI coaching",
+      "Personalized nutrition plans",
+      "VIP challenges",
+      "Advanced analytics",
+      "Team management",
+      "White-label option",
+      "24/7 priority support"
+    ]
+  };
 
   return (
     <MainLayout>
@@ -173,11 +186,16 @@ const Pricing = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {tiers.map((tier) => (
+          {products?.map((product, index) => (
             <PricingTier 
-              key={tier.name} 
-              {...tier} 
-              isSubscribed={subscriptionStatus.subscriptionTier === tier.name}
+              key={product.stripe_price_id}
+              name={product.name}
+              price={formatPrice(product.price_amount)}
+              description={product.description || ''}
+              features={tierFeatures[product.name as keyof typeof tierFeatures] || []}
+              isPopular={index === 1}
+              isSubscribed={subscriptionStatus.subscriptionTier === product.name}
+              priceId={product.stripe_price_id}
             />
           ))}
         </div>

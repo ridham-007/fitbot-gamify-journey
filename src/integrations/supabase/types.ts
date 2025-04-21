@@ -180,6 +180,48 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_products: {
+        Row: {
+          created_at: string | null
+          currency: string
+          description: string | null
+          id: string
+          interval: string
+          is_active: boolean
+          name: string
+          price_amount: number
+          stripe_price_id: string
+          stripe_product_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          id?: string
+          interval?: string
+          is_active?: boolean
+          name: string
+          price_amount: number
+          stripe_price_id: string
+          stripe_product_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          id?: string
+          interval?: string
+          is_active?: boolean
+          name?: string
+          price_amount?: number
+          stripe_price_id?: string
+          stripe_product_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       subscribers: {
         Row: {
           created_at: string
