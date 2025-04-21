@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import { 
   Send, Mic, Dumbbell, Info, User, Plus, ArrowRight, 
   Check, Heart, Clock, Play, Activity, Weight, BicepsFlexed,
-  BarChart, Video
+  BarChart, Video, Minimize2, Maximize2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ExerciseVideo from '@/components/trainer/ExerciseVideo';
@@ -32,7 +31,6 @@ type Suggestion = {
   category: 'workout' | 'diet' | 'goals' | 'health';
 };
 
-// Sample suggestions to get the user started
 const defaultSuggestions: Suggestion[] = [
   { id: '1', text: "Create a personalized workout", icon: <Dumbbell className="h-4 w-4" />, category: 'workout' },
   { id: '2', text: "Help me improve my fitness", icon: <Activity className="h-4 w-4" />, category: 'goals' },
@@ -51,12 +49,12 @@ const Trainer = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [exerciseVideos, setExerciseVideos] = useState([]);
   const [workoutData, setWorkoutData] = useState([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Check for authentication
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -68,12 +66,10 @@ const Trainer = () => {
       
       setUserId(session.user.id);
       
-      // After confirming auth, fetch initial data
       fetchChatHistory();
       fetchExerciseVideos();
       fetchWorkoutData();
       
-      // Add initial greeting if no messages
       if (messages.length === 0) {
         setMessages([{
           id: '1',
@@ -136,7 +132,6 @@ const Trainer = () => {
       })));
     } else if (error) {
       console.error('Error fetching workout data:', error);
-      // Use sample data if no data exists yet
       setWorkoutData([
         { date: 'Mon', duration: 45, calories: 320 },
         { date: 'Tue', duration: 30, calories: 250 },
@@ -164,7 +159,7 @@ const Trainer = () => {
     
     let i = 0;
     const fullContent = message.content;
-    const typingSpeed = 10; // Adjust speed as needed
+    const typingSpeed = 10;
     const minDisplayTime = 800;
     
     const startTime = Date.now();
@@ -207,7 +202,6 @@ const Trainer = () => {
 
   const processUserMessage = async (userText: string) => {
     try {
-      // Call Supabase Edge Function to process the message with AI
       const { data, error } = await supabase.functions.invoke('fitness-ai-chat', {
         body: { message: userText, userId }
       });
@@ -236,17 +230,14 @@ const Trainer = () => {
     setIsLoading(true);
     
     try {
-      // Store user message in Supabase
       await supabase.from('ai_trainer_chats').insert({
         message: input,
         is_user: true,
         user_id: userId
       });
       
-      // Process message with AI
       const aiResponse = await processUserMessage(input);
       
-      // Generate new relevant suggestions based on the context
       const newSuggestions = generateRelevantSuggestions(input, aiResponse);
       if (newSuggestions.length > 0) {
         setCurrentSuggestions([
@@ -262,12 +253,10 @@ const Trainer = () => {
         timestamp: new Date(),
       };
       
-      // Simulate typing effect
       simulateTyping(aiMessage, () => {
         setIsLoading(false);
       });
       
-      // Store AI response in Supabase
       await supabase.from('ai_trainer_chats').insert({
         message: aiResponse,
         is_user: false,
@@ -284,13 +273,11 @@ const Trainer = () => {
     }
   };
 
-  // Generate contextually relevant suggestions based on the conversation
   const generateRelevantSuggestions = (userInput: string, aiResponse: string): Suggestion[] => {
     const lowerInput = userInput.toLowerCase();
     const lowerResponse = aiResponse.toLowerCase();
     const suggestions: Suggestion[] = [];
     
-    // Workout related suggestions
     if (lowerInput.includes('workout') || lowerInput.includes('exercise') || lowerResponse.includes('workout plan')) {
       suggestions.push({ 
         id: 'w1', 
@@ -306,7 +293,6 @@ const Trainer = () => {
       });
     }
     
-    // Nutrition related suggestions
     if (lowerInput.includes('diet') || lowerInput.includes('food') || lowerInput.includes('eat') || lowerResponse.includes('nutrition')) {
       suggestions.push({ 
         id: 'd1', 
@@ -322,7 +308,6 @@ const Trainer = () => {
       });
     }
     
-    // Goal related suggestions
     if (lowerInput.includes('goal') || lowerInput.includes('target') || lowerResponse.includes('goal')) {
       suggestions.push({ 
         id: 'g1', 
@@ -362,58 +347,61 @@ const Trainer = () => {
     }
   };
 
+  const toggleFullscreen = () => {
+    setIsFullscreen(prev => !prev);
+  };
+
   return (
     <MainLayout isLoggedIn={true}>
       <div className="flex flex-col h-[calc(100vh-4rem)]">
         <div className="bg-fitPurple-600 text-white py-4">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center">
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center mr-3 animate-pulse-scale">
-              <Dumbbell className="h-5 w-5 text-fitPurple-600" />
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center mr-3 animate-pulse-scale">
+                <Dumbbell className="h-5 w-5 text-fitPurple-600" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">AI Fitness Trainer</h1>
+                <p className="text-sm text-fitPurple-100">Your personal coach for workouts, nutrition, and fitness tracking</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold">AI Fitness Trainer</h1>
-              <p className="text-sm text-fitPurple-100">Your personal coach for workouts, nutrition, and fitness tracking</p>
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-fitPurple-500"
+              onClick={toggleFullscreen}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="h-5 w-5" />
+              ) : (
+                <Maximize2 className="h-5 w-5" />
+              )}
+            </Button>
           </div>
         </div>
         
-        <div className="flex-grow bg-gray-50 dark:bg-fitDark-900 overflow-hidden flex flex-col lg:flex-row">
-          <div className="flex-grow lg:w-2/3 overflow-hidden flex flex-col">
+        <div className={cn(
+          "flex-grow bg-gray-50 dark:bg-fitDark-900 overflow-hidden",
+          "flex",
+          isFullscreen ? "flex-col" : "flex-col lg:flex-row"
+        )}>
+          <div className={cn(
+            "flex-grow overflow-hidden flex flex-col",
+            isFullscreen ? "w-full" : "lg:w-2/3"
+          )}>
             <div className="flex-grow overflow-auto px-4">
               <div className="max-w-4xl mx-auto py-4 space-y-4">
                 <AnimatePresence>
                   {messages.map((message) => (
-                    <motion.div
+                    <ChatMessage
                       key={message.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[80%] px-4 py-3 rounded-lg ${
-                          message.type === 'user'
-                            ? 'bg-fitPurple-600 text-white rounded-br-none animate-slide-up'
-                            : 'bg-white dark:bg-fitDark-800 shadow border border-gray-100 dark:border-fitDark-700 rounded-bl-none animate-scale-in'
-                        }`}
-                      >
-                        <div className="whitespace-pre-wrap">{message.content}</div>
-                        {message.isTyping && (
-                          <div className="mt-2 flex space-x-1">
-                            <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                            <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-bounce" style={{ animationDelay: '200ms' }}></div>
-                            <div className="w-2 h-2 rounded-full bg-fitPurple-400 animate-bounce" style={{ animationDelay: '400ms' }}></div>
-                          </div>
-                        )}
-                        <div
-                          className={`text-xs mt-1 ${
-                            message.type === 'user' ? 'text-fitPurple-200' : 'text-gray-500 dark:text-gray-400'
-                          }`}
-                        >
-                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      </div>
-                    </motion.div>
+                      content={message.content}
+                      type={message.type}
+                      timestamp={message.timestamp}
+                      isTyping={message.isTyping}
+                      onToggleFullscreen={toggleFullscreen}
+                      isFullscreen={isFullscreen}
+                    />
                   ))}
                 </AnimatePresence>
                 {isLoading && !messages[messages.length - 1]?.isTyping && (
@@ -483,32 +471,34 @@ const Trainer = () => {
             </div>
           </div>
 
-          <div className="lg:w-1/3 border-l border-gray-200 dark:border-fitDark-700 bg-white dark:bg-fitDark-800 overflow-auto">
-            <div className="p-4 space-y-6">
-              <WorkoutChart
-                data={workoutData}
-                title="Weekly Workout Progress"
-              />
-              
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <Video className="h-5 w-5" />
-                  Exercise Videos
-                </h3>
-                {exerciseVideos.map((video) => (
-                  <ExerciseVideo
-                    key={video.id}
-                    name={video.name}
-                    description={video.description}
-                    videoUrl={video.video_url}
-                    category={video.category}
-                    difficulty={video.difficulty}
-                    muscleGroup={video.muscle_group}
-                  />
-                ))}
+          {!isFullscreen && (
+            <div className="lg:w-1/3 border-l border-gray-200 dark:border-fitDark-700 bg-white dark:bg-fitDark-800 overflow-auto">
+              <div className="p-4 space-y-6">
+                <WorkoutChart
+                  data={workoutData}
+                  title="Weekly Workout Progress"
+                />
+                
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <Video className="h-5 w-5" />
+                    Exercise Videos
+                  </h3>
+                  {exerciseVideos.map((video) => (
+                    <ExerciseVideo
+                      key={video.id}
+                      name={video.name}
+                      description={video.description}
+                      videoUrl={video.video_url}
+                      category={video.category}
+                      difficulty={video.difficulty}
+                      muscleGroup={video.muscle_group}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </MainLayout>
