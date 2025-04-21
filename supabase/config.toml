@@ -49,3 +49,7 @@ enable_confirmations = false
 enabled = false
 client_id = ""
 secret = ""
+
+[functions.stripe-webhook]
+verify_jwt = false
+
