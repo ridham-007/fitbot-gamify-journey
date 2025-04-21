@@ -70,16 +70,12 @@ const PricingTier = ({
 }) => {
   const handleCheckout = async () => {
     try {
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) {
-        toast.error('Please log in to subscribe');
-        return;
-      }
-
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: JSON.stringify({ 
           tier: name, 
-          userId: user.id 
+          userId: user?.id 
         })
       });
 
@@ -89,6 +85,15 @@ const PricingTier = ({
     } catch (error) {
       toast.error('Failed to start checkout', { description: error.message });
     }
+  };
+
+  const handleSubscribe = async () => {
+    if (name === 'Basic') {
+      window.location.href = '/signup';
+      return;
+    }
+    
+    await handleCheckout();
   };
 
   return (
@@ -120,10 +125,10 @@ const PricingTier = ({
         <Button 
           className="w-full" 
           variant={isPopular ? "default" : "outline"}
-          onClick={handleCheckout}
+          onClick={handleSubscribe}
           disabled={isSubscribed}
         >
-          {isSubscribed ? 'Current Plan' : 'Get Started'}
+          {isSubscribed ? 'Current Plan' : name === 'Basic' ? 'Sign Up Free' : 'Get Started'}
         </Button>
       </CardFooter>
     </Card>
@@ -135,6 +140,8 @@ const Pricing = () => {
     subscribed: boolean;
     subscriptionTier?: string | null;
   }>({ subscribed: false });
+  
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
   const { data: products } = useQuery({
     queryKey: ['stripe-products'],
@@ -150,10 +157,22 @@ const Pricing = () => {
   });
 
   useEffect(() => {
+    const checkAuthStatus = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsLoggedIn(!!user);
+    };
+    
+    checkAuthStatus();
+  }, []);
+
+  useEffect(() => {
     const checkSubscription = async () => {
       try {
-        const user = (await supabase.auth.getUser()).data.user;
-        if (!user) return;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setSubscriptionStatus({ subscribed: false });
+          return;
+        }
 
         const { data, error } = await supabase.functions.invoke('check-subscription', {
           body: JSON.stringify({ userId: user.id })
@@ -167,11 +186,14 @@ const Pricing = () => {
         });
       } catch (error) {
         console.error('Failed to check subscription', error);
+        setSubscriptionStatus({ subscribed: false });
       }
     };
 
-    checkSubscription();
-  }, []);
+    if (isLoggedIn) {
+      checkSubscription();
+    }
+  }, [isLoggedIn]);
 
   return (
     <MainLayout>
@@ -192,7 +214,7 @@ const Pricing = () => {
               description={product.description || ''}
               features={tierFeatures[product.name as keyof typeof tierFeatures] || []}
               isPopular={index === 1}
-              isSubscribed={subscriptionStatus.subscriptionTier === product.name}
+              isSubscribed={isLoggedIn && subscriptionStatus.subscriptionTier === product.name}
               priceId={product.stripe_price_id}
             />
           ))}

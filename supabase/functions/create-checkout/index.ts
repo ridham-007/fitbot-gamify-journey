@@ -27,64 +27,92 @@ serve(async (req) => {
     // Parse the incoming request body
     const { tier, userId } = await req.json();
 
-    // Fetch user details
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(userId);
-    if (userError || !userData.user) throw new Error("User not found");
-
-    const user = userData.user;
+    // Check if this is the Basic tier (free)
+    if (tier === 'Basic') {
+      return new Response(JSON.stringify({ 
+        url: `${Deno.env.get('APP_URL') || req.headers.get('origin')}/dashboard?success=true&tier=basic` 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
 
     // Determine price based on tier
     let priceId;
     switch(tier) {
-      case 'Basic':
-        // Free tier - no need for payment
-        return new Response(JSON.stringify({ 
-          url: `${Deno.env.get('APP_URL') || req.headers.get('origin')}/dashboard?success=true&tier=basic` 
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        });
       case 'Pro':
-        priceId = Deno.env.get('STRIPE_PRICE_PRO') || 'price_1OsAVrSGJFUlz2xtcMNSfY7V'; // Replace with env var or default value
+        priceId = Deno.env.get('STRIPE_PRICE_PRO') || '';
         break;
       case 'Elite':
-        priceId = Deno.env.get('STRIPE_PRICE_ELITE') || 'price_1OsAWBSGJFUlz2xtlNVMUH4L'; // Replace with env var or default value
+        priceId = Deno.env.get('STRIPE_PRICE_ELITE') || '';
         break;
       default:
         throw new Error("Invalid tier");
     }
 
-    // Check if user already has a Stripe customer ID
-    const { data: existingSubscriber } = await supabaseClient
-      .from('subscribers')
-      .select('stripe_customer_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    let customer;
-    if (existingSubscriber?.stripe_customer_id) {
-      // Use existing customer ID
-      customer = existingSubscriber.stripe_customer_id;
-    } else {
-      // Look up customer by email
-      const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-      if (customers.data.length > 0) {
-        customer = customers.data[0].id;
-      } else {
-        // Create new customer
-        const newCustomer = await stripe.customers.create({
-          email: user.email,
-          metadata: { userId: user.id }
-        });
-        customer = newCustomer.id;
+    // Find the price ID from the database if not specified in environment
+    if (!priceId) {
+      const { data: priceData, error: priceError } = await supabaseClient
+        .from('stripe_products')
+        .select('stripe_price_id')
+        .eq('name', tier)
+        .single();
+      
+      if (priceError || !priceData) {
+        throw new Error(`Could not find price ID for tier ${tier}`);
       }
+      
+      priceId = priceData.stripe_price_id;
+    }
+
+    // Check if user is provided
+    let customer;
+    let email;
+    
+    if (userId) {
+      // Fetch user details
+      const { data: userData, error: userError } = await supabaseClient.auth.admin.getUserById(userId);
+      if (userError || !userData.user) {
+        console.error("User error:", userError);
+        // Continue without user data, will create checkout session with email only
+      } else {
+        email = userData.user.email;
+        
+        // Check if user already has a Stripe customer ID
+        const { data: existingSubscriber } = await supabaseClient
+          .from('subscribers')
+          .select('stripe_customer_id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (existingSubscriber?.stripe_customer_id) {
+          // Use existing customer ID
+          customer = existingSubscriber.stripe_customer_id;
+        } else if (email) {
+          // Look up customer by email
+          const customers = await stripe.customers.list({ email, limit: 1 });
+          if (customers.data.length > 0) {
+            customer = customers.data[0].id;
+          }
+        }
+      }
+    }
+
+    // Create a new customer if needed
+    if (!customer && email) {
+      const newCustomer = await stripe.customers.create({
+        email,
+        metadata: userId ? { userId } : undefined
+      });
+      customer = newCustomer.id;
     }
 
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      customer: customer,
-      client_reference_id: user.id,
+      customer,
+      customer_email: !customer ? email : undefined,
+      client_reference_id: userId || undefined,
       line_items: [{
         price: priceId,
         quantity: 1,
