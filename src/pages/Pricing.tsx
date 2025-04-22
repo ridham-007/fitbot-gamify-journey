@@ -160,12 +160,42 @@ const PricingTier = ({
 };
 
 const Pricing = () => {
-  const [subscriptionStatus, setSubscriptionStatus] = useState<{
-    subscribed: boolean;
-    subscriptionTier?: string | null;
-  }>({ subscribed: false });
-  
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  
+  const { data: subscriptionStatus = { subscribed: false } } = useQuery({
+    queryKey: ['subscription-status'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { subscribed: false };
+
+      const { data: subscriber, error } = await supabase
+        .from('subscribers')
+        .select('subscribed, subscription_tier, subscription_end')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching subscription:', error);
+        return { subscribed: false };
+      }
+
+      return {
+        subscribed: subscriber?.subscribed || false,
+        subscriptionTier: subscriber?.subscription_tier,
+        subscriptionEnd: subscriber?.subscription_end
+      };
+    },
+    enabled: isLoggedIn
+  });
+
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsLoggedIn(!!user);
+    };
+    
+    checkAuthStatus();
+  }, []);
 
   const { data: products } = useQuery({
     queryKey: ['stripe-products'],
@@ -179,45 +209,6 @@ const Pricing = () => {
       return data as StripePricing[];
     }
   });
-
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsLoggedIn(!!user);
-    };
-    
-    checkAuthStatus();
-  }, []);
-
-  useEffect(() => {
-    const checkSubscription = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setSubscriptionStatus({ subscribed: false });
-          return;
-        }
-
-        const { data, error } = await supabase.functions.invoke('check-subscription', {
-          body: JSON.stringify({ userId: user.id })
-        });
-
-        if (error) throw error;
-
-        setSubscriptionStatus({
-          subscribed: data.subscribed,
-          subscriptionTier: data.subscriptionTier
-        });
-      } catch (error) {
-        console.error('Failed to check subscription', error);
-        setSubscriptionStatus({ subscribed: false });
-      }
-    };
-
-    if (isLoggedIn) {
-      checkSubscription();
-    }
-  }, [isLoggedIn]);
 
   return (
     <MainLayout>
