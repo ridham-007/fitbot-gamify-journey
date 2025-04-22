@@ -36,7 +36,6 @@ serve(async (req) => {
       throw new Error("STRIPE_WEBHOOK_SECRET is not set");
     }
 
-    // Using constructEventAsync instead of constructEvent
     const event = await stripe.webhooks.constructEventAsync(
       body,
       signature,
@@ -58,7 +57,7 @@ serve(async (req) => {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
         
-        // Get customer's email
+        // Get customer's email and metadata
         const customer = await stripe.customers.retrieve(customerId);
         if (!customer || customer.deleted) {
           throw new Error("Customer not found or deleted");
@@ -67,6 +66,20 @@ serve(async (req) => {
         const email = customer.email;
         if (!email) {
           throw new Error("Customer email not found");
+        }
+
+        // Get user_id from customer metadata or lookup by email
+        let userId = customer.metadata?.userId;
+        
+        if (!userId) {
+          // Try to find user_id by email
+          const { data: userData } = await supabaseClient
+            .from('profiles')
+            .select('id')
+            .eq('email', email)
+            .single();
+          
+          userId = userData?.id;
         }
 
         // Determine subscription status and tier
@@ -87,6 +100,7 @@ serve(async (req) => {
         // Update subscribers table
         await supabaseClient.from("subscribers").upsert({
           email: email,
+          user_id: userId,
           stripe_customer_id: customerId,
           subscribed: isActive,
           subscription_tier: isActive ? subscriptionTier : null,
@@ -96,6 +110,7 @@ serve(async (req) => {
 
         logStep("Updated subscription", { 
           email,
+          userId,
           subscriptionTier,
           isActive,
           event: event.type 

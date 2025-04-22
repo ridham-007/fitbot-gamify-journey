@@ -51,6 +51,12 @@ const tierFeatures = {
   ]
 };
 
+const tierPriceRanks = {
+  'Basic': 0,
+  'Pro': 1,
+  'Elite': 2
+};
+
 const PricingTier = ({ 
   name, 
   price, 
@@ -58,6 +64,7 @@ const PricingTier = ({
   features, 
   isPopular,
   isSubscribed,
+  currentTier,
   priceId 
 }: { 
   name: string;
@@ -66,6 +73,7 @@ const PricingTier = ({
   features: string[];
   isPopular?: boolean;
   isSubscribed?: boolean;
+  currentTier?: string | null;
   priceId?: string;
 }) => {
   const handleCheckout = async () => {
@@ -87,6 +95,17 @@ const PricingTier = ({
     }
   };
 
+  const getButtonText = () => {
+    if (isSubscribed) return 'Current Plan';
+    if (name === 'Basic') return 'Sign Up Free';
+    if (!currentTier) return 'Get Started';
+    
+    const currentRank = tierPriceRanks[currentTier as keyof typeof tierPriceRanks] || 0;
+    const newRank = tierPriceRanks[name as keyof typeof tierPriceRanks] || 0;
+    
+    return newRank > currentRank ? 'Upgrade' : 'Downgrade';
+  };
+
   const handleSubscribe = async () => {
     if (name === 'Basic') {
       window.location.href = '/signup';
@@ -97,11 +116,16 @@ const PricingTier = ({
   };
 
   return (
-    <Card className={`flex flex-col ${isPopular ? 'border-2 border-fitPurple-500 shadow-lg scale-105' : ''}`}>
+    <Card className={`flex flex-col ${isPopular ? 'border-2 border-fitPurple-500 shadow-lg scale-105' : ''} ${isSubscribed ? 'ring-2 ring-green-500' : ''}`}>
       <CardHeader>
         {isPopular && (
           <div className="px-3 py-1 text-sm text-white bg-fitPurple-500 rounded-full w-fit mb-4">
             Most Popular
+          </div>
+        )}
+        {isSubscribed && (
+          <div className="px-3 py-1 text-sm text-white bg-green-500 rounded-full w-fit mb-4">
+            Current Plan
           </div>
         )}
         <h3 className="text-2xl font-bold">{name}</h3>
@@ -128,7 +152,7 @@ const PricingTier = ({
           onClick={handleSubscribe}
           disabled={isSubscribed}
         >
-          {isSubscribed ? 'Current Plan' : name === 'Basic' ? 'Sign Up Free' : 'Get Started'}
+          {getButtonText()}
         </Button>
       </CardFooter>
     </Card>
@@ -215,6 +239,7 @@ const Pricing = () => {
               features={tierFeatures[product.name as keyof typeof tierFeatures] || []}
               isPopular={index === 1}
               isSubscribed={isLoggedIn && subscriptionStatus.subscriptionTier === product.name}
+              currentTier={subscriptionStatus.subscriptionTier}
               priceId={product.stripe_price_id}
             />
           ))}
