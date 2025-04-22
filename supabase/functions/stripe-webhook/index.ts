@@ -36,7 +36,8 @@ serve(async (req) => {
       throw new Error("STRIPE_WEBHOOK_SECRET is not set");
     }
 
-    const event = stripe.webhooks.constructEvent(
+    // Using constructEventAsync instead of constructEvent
+    const event = await stripe.webhooks.constructEventAsync(
       body,
       signature,
       webhookSecret
