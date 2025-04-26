@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -8,10 +8,14 @@ import { useToast } from '@/components/ui/use-toast';
 import { useUser } from '@/contexts/UserContext';
 import MainLayout from '@/components/layout/MainLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { Play, CheckCircle, Clock, Trophy, Dumbbell, ChevronRight, Award, Heart, Medal, Flame, BarChart2, Loader2 } from 'lucide-react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { 
+  Play, Pause, CheckCircle, Clock, Trophy, Dumbbell, ChevronRight, 
+  Award, Heart, Medal, Flame, BarChart2, Loader2, Save, RotateCcw
+} from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ExerciseDemo from '@/components/dashboard/ExerciseDemo';
 import WorkoutProgress from '@/components/dashboard/WorkoutProgress';
+import WorkoutService from '@/services/WorkoutService';
 
 const defaultWorkout = {
   title: "Full Body HIIT",
@@ -91,33 +95,28 @@ const fetchUserStats = async (userId) => {
 };
 
 const completeWorkout = async ({ userId, workout, exercises, xpEarned }) => {
-  const { data, error } = await supabase
-    .from('workouts')
-    .insert({
-      user_id: userId,
-      workout_type: workout.title,
-      duration: workout.duration,
-      calories_burned: workout.caloriesBurn,
-      exercise_data: exercises,
-      xp_earned: xpEarned
-    });
-    
-  if (error) {
-    throw new Error(error.message);
+  const result = await WorkoutService.completeWorkout(userId, workout, exercises, xpEarned);
+  
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to save workout');
   }
   
-  return data;
+  return result.data;
 };
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useUser();
+  const queryClient = useQueryClient();
   const [isWorkoutStarted, setIsWorkoutStarted] = useState(false);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [timer, setTimer] = useState(0);
   const [isResting, setIsResting] = useState(false);
   const [mockWorkout, setMockWorkout] = useState(defaultWorkout);
+  const [isPaused, setIsPaused] = useState(false);
+  const [totalWorkoutTime, setTotalWorkoutTime] = useState(0);
+  const intervalRef = useRef<number | null>(null);
   
   const { data: userStats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['userStats', user?.id],
@@ -133,6 +132,39 @@ const Dashboard = () => {
     staleTime: 10 * 60 * 1000,
   });
   
+  const progressMutation = useMutation({
+    mutationFn: async ({ userId, workout, progress }: { 
+      userId: string; 
+      workout: any; 
+      progress: number;
+    }) => {
+      return WorkoutService.saveWorkoutProgress(userId, workout, progress);
+    }
+  });
+
+  const pauseWorkoutMutation = useMutation({
+    mutationFn: async ({ userId, workout, currentProgress }: {
+      userId: string;
+      workout: any;
+      currentProgress: any;
+    }) => {
+      return WorkoutService.pauseWorkout(userId, workout, currentProgress);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Workout Paused",
+        description: "Your progress has been saved. You can resume later.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to pause workout: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+
   const workoutMutation = useMutation({
     mutationFn: completeWorkout,
     onSuccess: () => {
@@ -140,7 +172,8 @@ const Dashboard = () => {
         title: "Workout Completed!",
         description: "Great job! Your progress has been saved.",
       });
-      refetchStats();
+      queryClient.invalidateQueries({ queryKey: ['userStats', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['userAchievements', user?.id] });
     },
     onError: (error) => {
       toast({
@@ -152,7 +185,7 @@ const Dashboard = () => {
   });
 
   const { data: currentExerciseDemo } = useQuery({
-    queryKey: ['exercise-demo', currentExerciseIndex],
+    queryKey: ['exercise-demo', currentExerciseIndex, isWorkoutStarted],
     queryFn: async () => {
       if (!isWorkoutStarted) return null;
       
@@ -164,13 +197,38 @@ const Dashboard = () => {
         
       if (error) {
         console.error('Error fetching exercise demo:', error);
-        return null;
+        return {
+          exercise_name: mockWorkout.exercises[currentExerciseIndex].name,
+          description: "Focus on proper form and controlled movements.",
+          animation_url: "https://placehold.co/600x400?text=Exercise+Demo",
+          muscle_group: "Full Body",
+          difficulty_level: mockWorkout.difficulty,
+          form_tips: [
+            "Maintain proper posture throughout the exercise",
+            "Keep movements controlled and deliberate",
+            "Focus on your breathing pattern"
+          ]
+        };
       }
       
       return data;
     },
     enabled: isWorkoutStarted && currentExerciseIndex >= 0
   });
+
+  useEffect(() => {
+    const progressSaveInterval = setInterval(() => {
+      if (isWorkoutStarted && !isPaused && user?.id && totalWorkoutTime > 0) {
+        progressMutation.mutate({
+          userId: user.id,
+          workout: mockWorkout,
+          progress: totalWorkoutTime
+        });
+      }
+    }, 60000);
+    
+    return () => clearInterval(progressSaveInterval);
+  }, [isWorkoutStarted, isPaused, user?.id, totalWorkoutTime, mockWorkout, progressMutation]);
 
   useEffect(() => {
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
@@ -180,10 +238,52 @@ const Dashboard = () => {
   }, [navigate]);
 
   useEffect(() => {
-    let interval = null;
+    const checkForSavedWorkout = async () => {
+      if (user?.id && !isWorkoutStarted) {
+        const result = await WorkoutService.resumeWorkout(user.id);
+        
+        if (result.success && result.data) {
+          toast({
+            title: "Saved Workout Found",
+            description: "You can resume your previous workout.",
+            action: (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  setMockWorkout(result.data.workout);
+                  setCurrentExerciseIndex(result.data.currentProgress.currentExerciseIndex || 0);
+                  setTimer(result.data.currentProgress.timer || 0);
+                  setIsResting(result.data.currentProgress.isResting || false);
+                  setIsWorkoutStarted(true);
+                  setIsPaused(false);
+                  setTotalWorkoutTime(result.data.currentProgress.totalTime || 0);
+                  
+                  toast({
+                    title: "Workout Resumed",
+                    description: "Let's continue where you left off!",
+                  });
+                }}
+              >
+                <RotateCcw className="h-4 w-4 mr-1" /> Resume
+              </Button>
+            ),
+          });
+        }
+      }
+    };
     
-    if (isWorkoutStarted) {
-      interval = setInterval(() => {
+    checkForSavedWorkout();
+  }, [user?.id, toast, isWorkoutStarted]);
+
+  useEffect(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
+    if (isWorkoutStarted && !isPaused) {
+      intervalRef.current = window.setInterval(() => {
         setTimer(prevTimer => {
           const currentExercise = mockWorkout.exercises[currentExerciseIndex];
           const duration = isResting ? currentExercise.rest : currentExercise.duration;
@@ -193,8 +293,9 @@ const Dashboard = () => {
               if (currentExerciseIndex < mockWorkout.exercises.length - 1) {
                 setCurrentExerciseIndex(prev => prev + 1);
               } else {
-                clearInterval(interval);
+                clearInterval(intervalRef.current!);
                 setIsWorkoutStarted(false);
+                setIsPaused(false);
                 
                 const updatedExercises = [...mockWorkout.exercises];
                 updatedExercises[currentExerciseIndex].completed = true;
@@ -225,13 +326,18 @@ const Dashboard = () => {
           }
           return prevTimer + 1;
         });
+        
+        setTotalWorkoutTime(prev => prev + 1);
       }, 1000);
     }
     
     return () => {
-      if (interval) clearInterval(interval);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [isWorkoutStarted, currentExerciseIndex, isResting, mockWorkout, user, workoutMutation]);
+  }, [isWorkoutStarted, currentExerciseIndex, isResting, mockWorkout, user, workoutMutation, isPaused]);
 
   const startWorkout = () => {
     const resetExercises = mockWorkout.exercises.map(ex => ({...ex, completed: false}));
@@ -240,6 +346,40 @@ const Dashboard = () => {
     setCurrentExerciseIndex(0);
     setTimer(0);
     setIsResting(false);
+    setIsPaused(false);
+    setTotalWorkoutTime(0);
+    
+    toast({
+      title: "Workout Started",
+      description: `Get ready for your ${mockWorkout.title} workout!`,
+    });
+  };
+
+  const pauseWorkout = () => {
+    setIsPaused(true);
+    
+    if (user?.id) {
+      pauseWorkoutMutation.mutate({
+        userId: user.id,
+        workout: mockWorkout,
+        currentProgress: {
+          currentExerciseIndex,
+          timer,
+          isResting,
+          completedExercises: mockWorkout.exercises,
+          totalTime: totalWorkoutTime
+        }
+      });
+    }
+  };
+
+  const resumeWorkout = () => {
+    setIsPaused(false);
+    
+    toast({
+      title: "Workout Resumed",
+      description: "Let's keep going!",
+    });
   };
 
   const formatTime = (seconds) => {
@@ -248,11 +388,16 @@ const Dashboard = () => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  const calculateTimerProgress = () => {
-    if (!isWorkoutStarted) return 0;
-    const currentExercise = mockWorkout.exercises[currentExerciseIndex];
-    const duration = isResting ? currentExercise.rest : currentExercise.duration;
-    return (timer / duration) * 100;
+  const formatTotalTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
   };
 
   if (statsLoading || achievementsLoading) {
@@ -311,9 +456,16 @@ const Dashboard = () => {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-xl font-bold">Today's Workout</CardTitle>
-                  <Badge variant="outline" className="font-normal py-1">
-                    <Clock className="h-3 w-3 mr-1" /> {mockWorkout.duration} min
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="font-normal py-1">
+                      <Clock className="h-3 w-3 mr-1" /> {mockWorkout.duration} min
+                    </Badge>
+                    {isWorkoutStarted && (
+                      <Badge className="font-normal py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                        {formatTotalTime(totalWorkoutTime)}
+                      </Badge>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col md:flex-row md:items-center mb-4">
@@ -334,16 +486,48 @@ const Dashboard = () => {
                         </span>
                       </div>
                     </div>
-                    <div className="mt-4 md:mt-0">
+                    <div className="mt-4 md:mt-0 flex gap-2">
                       {!isWorkoutStarted ? (
                         <Button onClick={startWorkout} className="w-full md:w-auto">
                           <Play className="h-4 w-4 mr-2" />
                           Start Workout
                         </Button>
                       ) : (
-                        <Button variant="outline" onClick={() => setIsWorkoutStarted(false)} className="w-full md:w-auto">
-                          Pause Workout
-                        </Button>
+                        <>
+                          {isPaused ? (
+                            <Button onClick={resumeWorkout} className="w-full md:w-auto">
+                              <Play className="h-4 w-4 mr-2" />
+                              Resume
+                            </Button>
+                          ) : (
+                            <Button variant="secondary" onClick={pauseWorkout} className="w-full md:w-auto">
+                              <Pause className="h-4 w-4 mr-2" />
+                              Pause
+                            </Button>
+                          )}
+                          <Button 
+                            variant="outline" 
+                            onClick={() => {
+                              setIsWorkoutStarted(false);
+                              setIsPaused(false);
+                              
+                              if (totalWorkoutTime > 60) {
+                                toast({
+                                  title: "Workout Saved",
+                                  description: "Your partial progress has been saved.",
+                                });
+                                
+                                if (user?.id) {
+                                  WorkoutService.saveWorkoutProgress(user.id, mockWorkout, totalWorkoutTime);
+                                }
+                              }
+                            }} 
+                            className="w-full md:w-auto"
+                          >
+                            <Save className="h-4 w-4 mr-2" />
+                            End
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -358,6 +542,7 @@ const Dashboard = () => {
                           ? mockWorkout.exercises[currentExerciseIndex].rest - timer 
                           : mockWorkout.exercises[currentExerciseIndex].duration - timer}
                         totalTime={mockWorkout.duration * 60}
+                        isPaused={isPaused}
                       />
                       
                       {currentExerciseDemo && (
@@ -375,7 +560,8 @@ const Dashboard = () => {
                     </>
                   )}
 
-                  <div className="space-y-3">
+                  <div className="space-y-3 mt-6">
+                    <h4 className="font-semibold text-sm text-muted-foreground">Exercise Plan:</h4>
                     {mockWorkout.exercises.map((exercise, index) => (
                       <div 
                         key={index} 
@@ -401,6 +587,7 @@ const Dashboard = () => {
                         </div>
                         <div className="text-sm text-gray-600 dark:text-gray-400">
                           {exercise.duration}s
+                          {exercise.rest > 0 && <span className="ml-1 text-xs text-gray-500">+{exercise.rest}s rest</span>}
                         </div>
                       </div>
                     ))}
