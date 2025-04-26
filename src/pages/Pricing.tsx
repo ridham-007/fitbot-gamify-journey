@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import MainLayout from '@/components/layout/MainLayout';
@@ -172,7 +173,12 @@ const Pricing = () => {
         .order('price_amount', { ascending: true });
       
       if (error) throw error;
-      return data as StripePricing[];
+      
+      // Process the data to ensure features is properly parsed as an array of objects
+      return data.map(product => ({
+        ...product,
+        features: Array.isArray(product.features) ? product.features : []
+      })) as StripePricing[];
     },
     enabled: isLoggedIn
   });
