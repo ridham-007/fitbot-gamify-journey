@@ -141,6 +141,7 @@ const PricingTier = ({
 const Pricing = () => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   
+  // Fetch subscription status only if the user is logged in
   const { data: subscriptionStatus = { subscribed: false } } = useQuery({
     queryKey: ['subscription-status'],
     queryFn: async () => {
@@ -167,7 +168,8 @@ const Pricing = () => {
     enabled: isLoggedIn
   });
 
-  const { data: products } = useQuery({
+  // Fetch products for all users (logged in or not)
+  const { data: products = [] } = useQuery({
     queryKey: ['stripe-products'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -175,15 +177,17 @@ const Pricing = () => {
         .select('*')
         .order('price_amount', { ascending: true });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching products:', error);
+        throw error;
+      }
       
       // Process the data to ensure features is properly parsed as an array of objects
       return data.map(product => ({
         ...product,
         features: (product.features as unknown as PricingFeature[]) || []
       })) as StripePricing[];
-    },
-    enabled: isLoggedIn
+    }
   });
 
   useEffect(() => {
@@ -206,19 +210,25 @@ const Pricing = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {products?.map((product, index) => (
-            <PricingTier 
-              key={product.stripe_price_id}
-              name={product.name}
-              price={formatPrice(product.price_amount)}
-              description={product.description || ''}
-              features={product.features || []}
-              isPopular={index === 1}
-              isSubscribed={isLoggedIn && subscriptionStatus.subscriptionTier === product.name}
-              currentTier={subscriptionStatus.subscriptionTier}
-              priceId={product.stripe_price_id}
-            />
-          ))}
+          {products.length > 0 ? (
+            products.map((product, index) => (
+              <PricingTier 
+                key={product.stripe_price_id}
+                name={product.name}
+                price={formatPrice(product.price_amount)}
+                description={product.description || ''}
+                features={product.features || []}
+                isPopular={index === 1}
+                isSubscribed={isLoggedIn && subscriptionStatus.subscriptionTier === product.name}
+                currentTier={subscriptionStatus.subscriptionTier}
+                priceId={product.stripe_price_id}
+              />
+            ))
+          ) : (
+            <div className="col-span-3 text-center p-10">
+              <p className="text-xl text-gray-500">Loading pricing plans...</p>
+            </div>
+          )}
         </div>
         
         <div className="mt-16 text-center">
