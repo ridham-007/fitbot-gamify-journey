@@ -10,8 +10,9 @@ import MainLayout from '@/components/layout/MainLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Play, CheckCircle, Clock, Trophy, Dumbbell, ChevronRight, Award, Heart, Medal, Flame, BarChart2, Loader2 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import ExerciseDemo from '@/components/dashboard/ExerciseDemo';
+import WorkoutProgress from '@/components/dashboard/WorkoutProgress';
 
-// Mock workout structure
 const defaultWorkout = {
   title: "Full Body HIIT",
   description: "High intensity interval training targeting all major muscle groups",
@@ -27,7 +28,6 @@ const defaultWorkout = {
   ]
 };
 
-// Get the user's current achievements
 const fetchUserAchievements = async (userId) => {
   if (!userId) return [];
   
@@ -61,11 +61,9 @@ const fetchUserAchievements = async (userId) => {
   }));
 };
 
-// Get user profile and stats combined
 const fetchUserStats = async (userId) => {
   if (!userId) return null;
   
-  // Get user stats
   const { data: statsData, error: statsError } = await supabase
     .from('user_stats')
     .select('*')
@@ -76,7 +74,6 @@ const fetchUserStats = async (userId) => {
     throw new Error(statsError.message);
   }
   
-  // Get user profile to get username
   const { data: profileData, error: profileError } = await supabase
     .from('profiles')
     .select('username')
@@ -87,14 +84,12 @@ const fetchUserStats = async (userId) => {
     console.error("Error fetching profile:", profileError);
   }
   
-  // Combine the data
   return {
     ...statsData,
     username: profileData?.username || "Fitness Warrior"
   };
 };
 
-// Complete a workout and save it to the database
 const completeWorkout = async ({ userId, workout, exercises, xpEarned }) => {
   const { data, error } = await supabase
     .from('workouts')
@@ -124,22 +119,20 @@ const Dashboard = () => {
   const [isResting, setIsResting] = useState(false);
   const [mockWorkout, setMockWorkout] = useState(defaultWorkout);
   
-  // Use React Query to fetch user stats and achievements
   const { data: userStats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['userStats', user?.id],
     queryFn: () => fetchUserStats(user?.id),
     enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
   
   const { data: achievements = [], isLoading: achievementsLoading } = useQuery({
     queryKey: ['userAchievements', user?.id],
     queryFn: () => fetchUserAchievements(user?.id),
     enabled: !!user?.id,
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000,
   });
   
-  // For when we complete a workout
   const workoutMutation = useMutation({
     mutationFn: completeWorkout,
     onSuccess: () => {
@@ -158,8 +151,28 @@ const Dashboard = () => {
     }
   });
 
+  const { data: currentExerciseDemo } = useQuery({
+    queryKey: ['exercise-demo', currentExerciseIndex],
+    queryFn: async () => {
+      if (!isWorkoutStarted) return null;
+      
+      const { data, error } = await supabase
+        .from('exercise_demonstrations')
+        .select('*')
+        .eq('exercise_name', mockWorkout.exercises[currentExerciseIndex].name)
+        .single();
+        
+      if (error) {
+        console.error('Error fetching exercise demo:', error);
+        return null;
+      }
+      
+      return data;
+    },
+    enabled: isWorkoutStarted && currentExerciseIndex >= 0
+  });
+
   useEffect(() => {
-    // Check if user is logged in
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
     if (!isLoggedIn) {
       navigate('/login');
@@ -176,24 +189,18 @@ const Dashboard = () => {
           const duration = isResting ? currentExercise.rest : currentExercise.duration;
           
           if (prevTimer >= duration) {
-            // Time is up for current exercise/rest
             if (isResting) {
-              // Rest is over, move to next exercise
               if (currentExerciseIndex < mockWorkout.exercises.length - 1) {
                 setCurrentExerciseIndex(prev => prev + 1);
               } else {
-                // Workout completed
                 clearInterval(interval);
                 setIsWorkoutStarted(false);
                 
-                // Mark exercise as completed
                 const updatedExercises = [...mockWorkout.exercises];
                 updatedExercises[currentExerciseIndex].completed = true;
                 
-                // Calculate XP earned (based on duration and difficulty)
-                const xpEarned = mockWorkout.duration * 3; // Simple XP calculation
+                const xpEarned = mockWorkout.duration * 3;
                 
-                // Save workout to database if user is logged in
                 if (user && user.id) {
                   workoutMutation.mutate({
                     userId: user.id,
@@ -205,10 +212,8 @@ const Dashboard = () => {
               }
               setIsResting(false);
             } else {
-              // Exercise is over, start rest
               setIsResting(true);
               
-              // Mark exercise as completed
               const updatedExercises = [...mockWorkout.exercises];
               updatedExercises[currentExerciseIndex].completed = true;
               setMockWorkout(prev => ({
@@ -229,7 +234,6 @@ const Dashboard = () => {
   }, [isWorkoutStarted, currentExerciseIndex, isResting, mockWorkout, user, workoutMutation]);
 
   const startWorkout = () => {
-    // Reset workout state
     const resetExercises = mockWorkout.exercises.map(ex => ({...ex, completed: false}));
     setMockWorkout(prev => ({...prev, exercises: resetExercises}));
     setIsWorkoutStarted(true);
@@ -303,9 +307,7 @@ const Dashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Main Content */}
             <div className="md:col-span-2 space-y-6">
-              {/* Today's Workout */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-xl font-bold">Today's Workout</CardTitle>
@@ -347,24 +349,30 @@ const Dashboard = () => {
                   </div>
 
                   {isWorkoutStarted && (
-                    <div className="bg-gray-50 dark:bg-fitDark-950 rounded-lg p-4 mb-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <h4 className="font-medium text-fitDark-900 dark:text-white">
-                            {isResting ? "Rest" : mockWorkout.exercises[currentExerciseIndex].name}
-                          </h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {isResting ? "Catch your breath" : "Keep pushing!"}
-                          </p>
+                    <>
+                      <WorkoutProgress
+                        currentExercise={currentExerciseIndex + 1}
+                        totalExercises={mockWorkout.exercises.length}
+                        exerciseName={mockWorkout.exercises[currentExerciseIndex].name}
+                        timeRemaining={isResting 
+                          ? mockWorkout.exercises[currentExerciseIndex].rest - timer 
+                          : mockWorkout.exercises[currentExerciseIndex].duration - timer}
+                        totalTime={mockWorkout.duration * 60}
+                      />
+                      
+                      {currentExerciseDemo && (
+                        <div className="mt-6">
+                          <ExerciseDemo
+                            exerciseName={currentExerciseDemo.exercise_name}
+                            animationUrl={currentExerciseDemo.animation_url}
+                            description={currentExerciseDemo.description}
+                            muscleGroup={currentExerciseDemo.muscle_group}
+                            difficultyLevel={currentExerciseDemo.difficulty_level}
+                            formTips={currentExerciseDemo.form_tips}
+                          />
                         </div>
-                        <div className="text-2xl font-bold text-fitPurple-600">
-                          {formatTime(isResting 
-                            ? mockWorkout.exercises[currentExerciseIndex].rest - timer 
-                            : mockWorkout.exercises[currentExerciseIndex].duration - timer)}
-                        </div>
-                      </div>
-                      <Progress value={calculateTimerProgress()} className="h-2" />
-                    </div>
+                      )}
+                    </>
                   )}
 
                   <div className="space-y-3">
@@ -406,7 +414,6 @@ const Dashboard = () => {
                 </CardFooter>
               </Card>
 
-              {/* Level Progress */}
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xl font-bold">Level Progress</CardTitle>
@@ -452,9 +459,7 @@ const Dashboard = () => {
               </Card>
             </div>
 
-            {/* Sidebar */}
             <div className="space-y-6">
-              {/* Next Actions */}
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xl font-bold">Recommended For You</CardTitle>
@@ -482,7 +487,6 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              {/* Recent Achievements */}
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xl font-bold">Achievements</CardTitle>
@@ -513,7 +517,6 @@ const Dashboard = () => {
                       </div>
                     ))
                   ) : (
-                    // Fallback to show these achievements for new users
                     [
                       { id: 1, name: "First Workout", description: "Complete your first workout", icon: <Medal />, completed: false },
                       { id: 2, name: "3-Day Streak", description: "Work out for 3 consecutive days", icon: <Flame />, completed: false },

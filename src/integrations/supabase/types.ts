@@ -111,6 +111,39 @@ export type Database = {
         }
         Relationships: []
       }
+      exercise_demonstrations: {
+        Row: {
+          animation_url: string
+          created_at: string
+          description: string | null
+          difficulty_level: string
+          exercise_name: string
+          form_tips: string[] | null
+          id: string
+          muscle_group: string
+        }
+        Insert: {
+          animation_url: string
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string
+          exercise_name: string
+          form_tips?: string[] | null
+          id?: string
+          muscle_group: string
+        }
+        Update: {
+          animation_url?: string
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string
+          exercise_name?: string
+          form_tips?: string[] | null
+          id?: string
+          muscle_group?: string
+        }
+        Relationships: []
+      }
       exercise_videos: {
         Row: {
           category: string
