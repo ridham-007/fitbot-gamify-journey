@@ -20,6 +20,11 @@ import NotFound from "./pages/NotFound";
 import Features from "./pages/Features";
 import Pricing from "./pages/Pricing";
 import About from "./pages/About";
+import FAQ from "./pages/FAQ";
+import HelpCenter from "./pages/HelpCenter";
+import Contact from "./pages/Contact";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +51,12 @@ const App = () => (
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
             <Route path="/challenges" element={<PrivateRoute><Challenges /></PrivateRoute>} />
+            
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/help" element={<HelpCenter />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
