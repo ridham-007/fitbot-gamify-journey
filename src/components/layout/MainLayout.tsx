@@ -2,6 +2,7 @@
 import React from 'react';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import CookieConsent from '../common/CookieConsent';
 
 type MainLayoutProps = {
   children: React.ReactNode;
@@ -21,6 +22,7 @@ const MainLayout = ({
         {children}
       </main>
       {!hideFooter && <Footer />}
+      <CookieConsent />
     </div>
   );
 };
