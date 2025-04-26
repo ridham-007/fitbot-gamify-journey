@@ -7,16 +7,19 @@ import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { Json } from '@/integrations/supabase/types';
+
+interface PricingFeature {
+  text: string;
+  status: string;
+}
 
 interface StripePricing {
   name: string;
   description: string | null;
   price_amount: number;
   stripe_price_id: string;
-  features: Array<{
-    text: string;
-    status: string;
-  }>;
+  features: PricingFeature[];
 }
 
 const formatPrice = (amount: number, currency: string = 'USD') => {
@@ -177,7 +180,7 @@ const Pricing = () => {
       // Process the data to ensure features is properly parsed as an array of objects
       return data.map(product => ({
         ...product,
-        features: Array.isArray(product.features) ? product.features : []
+        features: (product.features as unknown as PricingFeature[]) || []
       })) as StripePricing[];
     },
     enabled: isLoggedIn
