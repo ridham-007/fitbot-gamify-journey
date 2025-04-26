@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useNavigate } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -55,14 +54,24 @@ const PricingTier = ({
   currentTier?: string | null;
   priceId?: string;
 }) => {
+  const navigate = useNavigate();
+
   const handleCheckout = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
+      if (!user) {
+        toast.info('Please login to continue', {
+          description: 'You need to be logged in to purchase a subscription'
+        });
+        navigate('/login', { state: { returnUrl: '/pricing' } });
+        return;
+      }
+      
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: JSON.stringify({ 
           tier: name, 
-          userId: user?.id 
+          userId: user.id 
         })
       });
 
@@ -87,7 +96,7 @@ const PricingTier = ({
 
   const handleSubscribe = async () => {
     if (name === 'Basic') {
-      window.location.href = '/signup';
+      navigate('/signup');
       return;
     }
     
@@ -141,7 +150,6 @@ const PricingTier = ({
 const Pricing = () => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   
-  // Fetch subscription status only if the user is logged in
   const { data: subscriptionStatus = { subscribed: false } } = useQuery({
     queryKey: ['subscription-status'],
     queryFn: async () => {
@@ -168,7 +176,6 @@ const Pricing = () => {
     enabled: isLoggedIn
   });
 
-  // Fetch products for all users (logged in or not)
   const { data: products = [] } = useQuery({
     queryKey: ['stripe-products'],
     queryFn: async () => {
@@ -182,7 +189,6 @@ const Pricing = () => {
         throw error;
       }
       
-      // Process the data to ensure features is properly parsed as an array of objects
       return data.map(product => ({
         ...product,
         features: (product.features as unknown as PricingFeature[]) || []
