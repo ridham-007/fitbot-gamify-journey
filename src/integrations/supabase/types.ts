@@ -185,6 +185,7 @@ export type Database = {
           created_at: string | null
           currency: string
           description: string | null
+          features: Json | null
           id: string
           interval: string
           is_active: boolean
@@ -198,6 +199,7 @@ export type Database = {
           created_at?: string | null
           currency?: string
           description?: string | null
+          features?: Json | null
           id?: string
           interval?: string
           is_active?: boolean
@@ -211,6 +213,7 @@ export type Database = {
           created_at?: string | null
           currency?: string
           description?: string | null
+          features?: Json | null
           id?: string
           interval?: string
           is_active?: boolean

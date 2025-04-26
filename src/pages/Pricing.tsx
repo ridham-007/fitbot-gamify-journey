@@ -12,6 +12,10 @@ interface StripePricing {
   description: string | null;
   price_amount: number;
   stripe_price_id: string;
+  features: Array<{
+    text: string;
+    status: string;
+  }>;
 }
 
 const formatPrice = (amount: number, currency: string = 'USD') => {
@@ -20,35 +24,6 @@ const formatPrice = (amount: number, currency: string = 'USD') => {
     currency,
     minimumFractionDigits: 0,
   }).format(amount / 100);
-};
-
-const tierFeatures = {
-  Basic: [
-    "Basic workout tracking",
-    "AI workout suggestions",
-    "Progress tracking",
-    "Public leaderboard access",
-    "Basic achievements"
-  ],
-  Pro: [
-    "Everything in Basic",
-    "Advanced AI training plans",
-    "Custom workout creation",
-    "Premium achievements",
-    "Priority support",
-    "Exclusive challenges",
-    "Progress analytics"
-  ],
-  Elite: [
-    "Everything in Pro",
-    "1-on-1 AI coaching",
-    "Personalized nutrition plans",
-    "VIP challenges",
-    "Advanced analytics",
-    "Team management",
-    "White-label option",
-    "24/7 priority support"
-  ]
 };
 
 const tierPriceRanks = {
@@ -70,7 +45,7 @@ const PricingTier = ({
   name: string;
   price: string;
   description: string;
-  features: string[];
+  features: Array<{ text: string; status: string; }>;
   isPopular?: boolean;
   isSubscribed?: boolean;
   currentTier?: string | null;
@@ -140,7 +115,7 @@ const PricingTier = ({
           {features.map((feature, index) => (
             <li key={index} className="flex items-center">
               <Check className="h-5 w-5 text-fitPurple-500 mr-2 flex-shrink-0" />
-              <span className="text-sm">{feature}</span>
+              <span className="text-sm">{feature.text}</span>
             </li>
           ))}
         </ul>
@@ -188,15 +163,6 @@ const Pricing = () => {
     enabled: isLoggedIn
   });
 
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsLoggedIn(!!user);
-    };
-    
-    checkAuthStatus();
-  }, []);
-
   const { data: products } = useQuery({
     queryKey: ['stripe-products'],
     queryFn: async () => {
@@ -207,8 +173,18 @@ const Pricing = () => {
       
       if (error) throw error;
       return data as StripePricing[];
-    }
+    },
+    enabled: isLoggedIn
   });
+
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsLoggedIn(!!user);
+    };
+    
+    checkAuthStatus();
+  }, []);
 
   return (
     <MainLayout>
@@ -227,7 +203,7 @@ const Pricing = () => {
               name={product.name}
               price={formatPrice(product.price_amount)}
               description={product.description || ''}
-              features={tierFeatures[product.name as keyof typeof tierFeatures] || []}
+              features={product.features || []}
               isPopular={index === 1}
               isSubscribed={isLoggedIn && subscriptionStatus.subscriptionTier === product.name}
               currentTier={subscriptionStatus.subscriptionTier}
