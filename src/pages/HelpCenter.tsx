@@ -2,7 +2,7 @@
 import React from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { HelpCircle, Mail, MessageSquareQuestion, FileText, Shield } from 'lucide-react';
+import { HelpCircle, Mail, FileText, Shield, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const HelpCenter = () => {
@@ -16,7 +16,7 @@ const HelpCenter = () => {
     {
       title: "FAQ",
       description: "Common questions answered",
-      icon: MessageSquareQuestion,
+      icon: MessageCircle,
       link: "/faq",
       items: ["Subscription FAQs", "Training FAQs", "Technical FAQs"]
     },
