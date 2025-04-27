@@ -57,6 +57,7 @@ const WorkoutProgress = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Overall workout progress */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Overall Progress</span>
@@ -69,6 +70,7 @@ const WorkoutProgress = ({
           </div>
         </div>
 
+        {/* Current exercise timer */}
         <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -90,10 +92,11 @@ const WorkoutProgress = ({
           />
         </div>
 
+        {/* Exercise video and description */}
         {videoUrl && (
           <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
             <h4 className="flex items-center gap-2 mb-2 font-medium">
-              <Video className="h-4 w-4" /> Exercise Video
+              <Video className="h-4 w-4" /> Exercise Demo
             </h4>
             <div className="aspect-video rounded overflow-hidden">
               <iframe

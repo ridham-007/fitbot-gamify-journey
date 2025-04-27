@@ -3,8 +3,9 @@ import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Play, Calendar, ArrowRight, CheckCircle } from 'lucide-react';
+import { Clock, Play, Calendar, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react';
 import { WorkoutSession } from '@/services/WorkoutProgressService';
+import { cn } from '@/lib/utils';
 
 interface PreviousWorkoutsProps {
   sessions: WorkoutSession[];
@@ -12,7 +13,7 @@ interface PreviousWorkoutsProps {
 }
 
 const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) => {
-  if (sessions.length === 0) {
+  if (!sessions || sessions.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -29,7 +30,7 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
   const formatTime = (seconds: number | undefined) => {
     if (!seconds) return "0:00";
     const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
@@ -72,7 +73,7 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
               <div className="flex justify-between items-start">
                 <div className="flex items-start">
                   <div className="w-10 h-10 rounded-full bg-fitPurple-100 dark:bg-fitPurple-900/30 flex items-center justify-center mr-3 text-fitPurple-600 dark:text-fitPurple-300">
-                    {session.completed_at ? <CheckCircle className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
+                    {session.is_completed ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
                   </div>
                   <div>
                     <div className="flex items-center">
@@ -93,25 +94,37 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
                         {formatDate(session.workout_date || session.created_at)}
                       </span>
                       <span>
-                        ~{calculateCalories(session.duration, session.intensity)} cal
+                        ~{session.calories || calculateCalories(session.duration, session.intensity)} cal
                       </span>
                     </div>
                   </div>
                 </div>
-                <Button 
-                  size="sm" 
-                  onClick={() => onResumeSession(session)}
-                  className="bg-fitPurple-600 hover:bg-fitPurple-700"
-                >
-                  <Play className="h-3 w-3 mr-1" /> Resume
-                </Button>
-              </div>
-              
-              <div className="mt-3">
-                <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
-                  <div className="h-full bg-fitPurple-600 dark:bg-fitPurple-400" style={{ width: `${Math.min(100, Math.max(5, (session.total_time || 0) / 1800 * 100))}%` }}></div>
+                <div>
+                  <Button 
+                    size="sm" 
+                    onClick={() => onResumeSession(session)}
+                    className={cn(
+                      "bg-fitPurple-600 hover:bg-fitPurple-700",
+                      !session.is_completed && "flex items-center gap-1"
+                    )}
+                  >
+                    <Play className="h-3 w-3 mr-1" /> {!session.is_completed ? "Resume" : "Start Again"}
+                  </Button>
                 </div>
               </div>
+              
+              {!session.is_completed && (
+                <div className="mt-3">
+                  <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+                    <div 
+                      className="h-full bg-fitPurple-600 dark:bg-fitPurple-400" 
+                      style={{ 
+                        width: `${Math.min(100, Math.max(5, ((session.current_exercise_index || 0) / 5) * 100))}%` 
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

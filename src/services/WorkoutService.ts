@@ -80,7 +80,9 @@ export const WorkoutService = {
           intensity: workout.difficulty,
           workout_date: new Date().toISOString().split('T')[0],
           current_exercise_index: currentExerciseIndex,
-          is_resting: isResting
+          is_resting: isResting,
+          exercise_state: JSON.stringify(workout.exercises),
+          is_completed: false
         })
         .select()
         .single();
@@ -114,7 +116,8 @@ export const WorkoutService = {
           workout_date: new Date().toISOString().split('T')[0],
           current_exercise_index: currentProgress.currentExerciseIndex,
           is_resting: currentProgress.isResting,
-          exercise_state: JSON.stringify(workout.exercises)
+          exercise_state: JSON.stringify(workout.exercises),
+          is_completed: false
         })
         .select()
         .single();
@@ -166,7 +169,9 @@ export const WorkoutService = {
           intensity: workout.difficulty,
           workout_date: new Date().toISOString().split('T')[0],
           satisfaction_rating: 5, // Default high rating for completed workouts
-          is_completed: true
+          is_completed: true,
+          current_exercise_index: completedExercises.length - 1,
+          exercise_state: JSON.stringify(completedExercises)
         });
       
       return { success: true, data: workoutData };
@@ -216,6 +221,7 @@ export const WorkoutService = {
         .select('*')
         .eq('user_id', userId)
         .eq('workout_date', new Date().toISOString().split('T')[0])
+        .eq('is_completed', false)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();

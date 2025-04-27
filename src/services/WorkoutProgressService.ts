@@ -2,6 +2,24 @@
 import { supabase } from '@/integrations/supabase/client';
 import { WorkoutExercise } from './WorkoutService';
 
+// Represents the workout progress as stored in the database
+export interface DatabaseWorkoutProgress {
+  id: string;
+  user_id: string;
+  workout_type: string;
+  duration?: number;
+  calories?: number;
+  intensity?: string;
+  satisfaction_rating?: number;
+  workout_date?: string;
+  created_at: string;
+  current_exercise_index?: number;
+  is_resting?: boolean;
+  exercise_state?: string;
+  is_completed?: boolean;
+}
+
+// Represents the workout session used in the UI
 export interface WorkoutSession {
   id: string;
   user_id: string;
@@ -12,7 +30,6 @@ export interface WorkoutSession {
   total_time: number;
   completed_exercises: number;
   created_at: string;
-  // Add fields that exist in the database
   duration?: number;
   calories?: number;
   intensity?: string;
@@ -39,6 +56,8 @@ export const WorkoutProgressService = {
           current_exercise_index: progressData.current_exercise_index || 0,
           is_resting: progressData.is_resting || false,
           created_at: new Date().toISOString(),
+          exercise_state: progressData.exercise_state,
+          is_completed: false
         })
         .select();
 
@@ -71,8 +90,8 @@ export const WorkoutProgressService = {
         return [];
       }
 
-      // Transform the data to match WorkoutSession interface
-      const sessions: WorkoutSession[] = data.map(item => ({
+      // Transform the database data to match WorkoutSession interface
+      const sessions: WorkoutSession[] = (data as DatabaseWorkoutProgress[]).map(item => ({
         id: item.id,
         user_id: item.user_id,
         workout_type: item.workout_type,
@@ -118,22 +137,24 @@ export const WorkoutProgressService = {
         return null;
       }
       
+      const dbData = data as DatabaseWorkoutProgress;
+      
       return {
-        id: data.id,
-        user_id: data.user_id,
-        workout_type: data.workout_type,
-        current_exercise_index: data.current_exercise_index || 0,
+        id: dbData.id,
+        user_id: dbData.user_id,
+        workout_type: dbData.workout_type,
+        current_exercise_index: dbData.current_exercise_index || 0,
         timer: 0,
-        is_resting: data.is_resting || false,
-        total_time: data.duration || 0,
+        is_resting: dbData.is_resting || false,
+        total_time: dbData.duration || 0,
         completed_exercises: 0,
-        created_at: data.created_at,
-        duration: data.duration,
-        calories: data.calories,
-        intensity: data.intensity,
-        workout_date: data.workout_date,
-        exercise_state: data.exercise_state,
-        is_completed: data.is_completed
+        created_at: dbData.created_at,
+        duration: dbData.duration,
+        calories: dbData.calories,
+        intensity: dbData.intensity,
+        workout_date: dbData.workout_date,
+        exercise_state: dbData.exercise_state,
+        is_completed: dbData.is_completed
       };
     } catch (error) {
       console.error('Exception when fetching active session:', error);
