@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ type Message = {
   timestamp: Date;
   isTyping?: boolean;
   category?: string;
+  sessionId?: string;
 };
 
 type Category = 'weightloss' | 'muscle-gain' | 'general-fitness' | 'flexibility';
@@ -164,7 +166,7 @@ const Trainer = () => {
 
   const fetchVideoRecommendations = async (sessionId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data: videoData, error } = await supabase
         .from('chat_video_recommendations')
         .select(`
           video_id,
@@ -176,8 +178,8 @@ const Trainer = () => {
         
       if (error) throw error;
       
-      if (data && data.length > 0) {
-        const videos = data
+      if (videoData && videoData.length > 0) {
+        const videos = videoData
           .filter(item => item.exercise_videos)
           .map(item => item.exercise_videos) as Video[];
           
@@ -214,7 +216,8 @@ const Trainer = () => {
           type: msg.is_user ? 'user' : 'ai',
           content: msg.message || '',
           timestamp: new Date(msg.created_at),
-          category: msg.category || undefined
+          category: msg.category || undefined,
+          sessionId: sessionId
         }));
 
         setMessages(sessionMessages);
@@ -247,6 +250,7 @@ const Trainer = () => {
       type: 'ai' as const,
       content: `Great choice! Let's focus on ${categories[category].title}. I'll ask you a few questions to provide better guidance.`,
       timestamp: new Date(),
+      sessionId: newSessionId
     };
     
     setMessages(prev => [...prev, welcomeMessage]);
@@ -271,6 +275,7 @@ const Trainer = () => {
         type: 'user',
         content: userText,
         timestamp: new Date(),
+        sessionId: sessionId || undefined
       };
       setMessages(prev => [...prev, userMessage]);
     }
@@ -279,7 +284,7 @@ const Trainer = () => {
     setIsLoading(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('fitness-ai-chat', {
+      const { data: responseData, error } = await supabase.functions.invoke('fitness-ai-chat', {
         body: { 
           message: userText || "Let's begin", 
           userId,
@@ -291,23 +296,24 @@ const Trainer = () => {
       
       if (error) throw error;
       
-      if (!data) throw new Error("No data returned from AI trainer");
+      if (!responseData) throw new Error("No data returned from AI trainer");
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: data.reply || "Sorry, I couldn't generate a response. Please try again.",
+        content: responseData.reply || "Sorry, I couldn't generate a response. Please try again.",
         timestamp: new Date(),
+        sessionId: sessionId || undefined
       };
       
       simulateTyping(aiMessage, () => {
         setIsLoading(false);
-        if (data.suggestedVideos && Array.isArray(data.suggestedVideos) && data.suggestedVideos.length > 0) {
-          console.log("Setting exercise videos:", data.suggestedVideos);
-          setExerciseVideos(data.suggestedVideos);
+        if (responseData.suggestedVideos && Array.isArray(responseData.suggestedVideos) && responseData.suggestedVideos.length > 0) {
+          console.log("Setting exercise videos:", responseData.suggestedVideos);
+          setExerciseVideos(responseData.suggestedVideos);
         }
-        if (data.previousSessions && Array.isArray(data.previousSessions)) {
-          setPreviousSessions(data.previousSessions);
+        if (responseData.previousSessions && Array.isArray(responseData.previousSessions)) {
+          setPreviousSessions(responseData.previousSessions);
         }
       });
       
@@ -346,7 +352,7 @@ const Trainer = () => {
       .from('ai_trainer_chats')
       .insert([
         { user_id: userId, message: userText, is_user: true, category, session_id: sessionId },
-        { user_id: userId, message: data.reply, is_user: false, category, session_id: sessionId }
+        { user_id: userId, message: responseData?.reply, is_user: false, category, session_id: sessionId }
       ]);
       
     if (chatError) {
