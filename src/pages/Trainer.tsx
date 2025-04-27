@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -375,7 +374,6 @@ const Trainer = () => {
     const uniqueSessions = previousSessions ? 
       [...new Map(previousSessions.map(item => [item.session_id, item])).values()]
       : [];
-
   };
 
   const simulateTyping = (message: Message, callback: () => void) => {
@@ -589,7 +587,7 @@ const Trainer = () => {
                         isTyping={message.isTyping}
                         onToggleFullscreen={() => {}}
                         isFullscreen={false}
-                        userAvatarUrl={message.type === 'user' ? supabase.auth.currentUser?.user_metadata?.avatar_url : undefined}
+                        userAvatarUrl={message.type === 'user' ? supabase.auth.getUser().then(data => data.data.user?.user_metadata?.avatar_url) : undefined}
                       />
                     ))}
                   </AnimatePresence>
