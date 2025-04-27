@@ -8,6 +8,7 @@ import { Clock, Dumbbell, User, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 interface ChatMessageProps {
   content: string;
@@ -16,6 +17,7 @@ interface ChatMessageProps {
   isTyping?: boolean;
   onToggleFullscreen?: () => void;
   isFullscreen?: boolean;
+  userAvatarUrl?: string;
 }
 
 const ChatMessage = ({ 
@@ -24,7 +26,8 @@ const ChatMessage = ({
   timestamp, 
   isTyping,
   onToggleFullscreen,
-  isFullscreen 
+  isFullscreen,
+  userAvatarUrl 
 }: ChatMessageProps) => {
   const messageVariants = {
     initial: { 
@@ -86,7 +89,7 @@ const ChatMessage = ({
         </div>
       )}
 
-      <div className="flex flex-col max-w-[92%]"> {/* Increased max-width to 92% */}
+      <div className="flex flex-col max-w-[92%]">
         <Card className={bubbleClasses}>
           <div className="relative">
             {contentTooLong ? (
@@ -197,9 +200,15 @@ const ChatMessage = ({
 
       {type === 'user' && (
         <div className="w-10 h-10 ml-2 flex-shrink-0">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-fitGreen-400 to-fitGreen-600 flex items-center justify-center shadow-md">
-            <User className="h-5 w-5 text-white" />
-          </div>
+          <Avatar className="h-10 w-10">
+            {userAvatarUrl ? (
+              <AvatarImage src={userAvatarUrl} alt="User avatar" />
+            ) : (
+              <AvatarFallback className="bg-gradient-to-br from-fitGreen-400 to-fitGreen-600">
+                <User className="h-5 w-5 text-white" />
+              </AvatarFallback>
+            )}
+          </Avatar>
         </div>
       )}
     </motion.div>

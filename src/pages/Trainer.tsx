@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -206,6 +205,7 @@ const Trainer = () => {
 
       if (chatsData && chatsData.length > 0) {
         const sessionCategory = chatsData[0].category as Category | null;
+        const firstUserMessage = chatsData.find(msg => msg.is_user)?.message || 'New Chat';
         setCurrentCategory(sessionCategory);
         setSessionId(sessionId);
 
@@ -218,9 +218,7 @@ const Trainer = () => {
         }));
 
         setMessages(sessionMessages);
-        
         await fetchVideoRecommendations(sessionId);
-        
         setShowSidebar(false);
       }
     } catch (error) {
@@ -322,6 +320,56 @@ const Trainer = () => {
       });
       setIsLoading(false);
     }
+
+    // Save initial welcome message for new sessions
+    if (isNewSession && sessionId) {
+      const welcomeMessage = {
+        id: Date.now().toString(),
+        type: 'ai' as const,
+        content: "Hi! I'm your AI fitness coach. Let's start by choosing a fitness category that matches your goals. What would you like to focus on?",
+        timestamp: new Date(),
+      };
+      
+      await supabase.from('ai_trainer_chats').insert([
+        { 
+          user_id: userId, 
+          message: welcomeMessage.content, 
+          is_user: false, 
+          category: category, 
+          session_id: sessionId 
+        }
+      ]);
+    }
+
+    // Save chat messages
+    const { error: chatError } = await supabase
+      .from('ai_trainer_chats')
+      .insert([
+        { user_id: userId, message: userText, is_user: true, category, session_id: sessionId },
+        { user_id: userId, message: data.reply, is_user: false, category, session_id: sessionId }
+      ]);
+      
+    if (chatError) {
+      console.error("Error saving chat messages:", chatError);
+    }
+    
+    // Get previous session IDs for this user
+    const { data: previousSessions, error: sessionsError } = await supabase
+      .from('ai_trainer_chats')
+      .select('session_id, created_at')
+      .eq('user_id', userId)
+      .eq('is_user', true)
+      .order('created_at', { ascending: false })
+      .limit(10);
+      
+    if (sessionsError) {
+      console.error("Error fetching previous sessions:", sessionsError);
+    }
+    
+    const uniqueSessions = previousSessions ? 
+      [...new Map(previousSessions.map(item => [item.session_id, item])).values()]
+      : [];
+
   };
 
   const simulateTyping = (message: Message, callback: () => void) => {
@@ -641,55 +689,62 @@ const Trainer = () => {
                         )}
                       </div>
                     ) : (
-                      <div className="space-y-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={startNewChat}
-                          className="w-full flex items-center justify-start hover:bg-fitPurple-50 dark:hover:bg-fitPurple-900/10"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Start New Conversation
-                        </Button>
-                        
-                        {previousSessions && previousSessions.length > 0 ? (
-                          previousSessions.map((session) => (
-                            <Button
-                              key={session.session_id}
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => loadPreviousSession(session.session_id)}
-                              className="w-full group flex flex-col items-start justify-start p-3 hover:bg-fitPurple-50 dark:hover:bg-fitPurple-900/10 rounded-lg transition-all"
-                            >
-                              <div className="flex items-center w-full mb-1">
-                                <MessageSquare className="h-4 w-4 mr-2 text-fitPurple-500" />
-                                <span className="text-sm font-medium">
-                                  {session.created_at && new Date(session.created_at).toLocaleDateString(undefined, { 
-                                    month: 'short', 
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                  })}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
-                                <span>
-                                  {session.created_at && new Date(session.created_at).toLocaleTimeString(undefined, {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </span>
-                                <span className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                  View Chat →
-                                </span>
-                              </div>
-                            </Button>
-                          ))
-                        ) : (
-                          <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-                            No previous conversations found.
-                          </p>
-                        )}
-                      </div>
+                      
+      <div className="space-y-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={startNewChat}
+          className="w-full flex items-center justify-start hover:bg-fitPurple-50 dark:hover:bg-fitPurple-900/10"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Start New Conversation
+        </Button>
+        
+        {previousSessions && previousSessions.length > 0 ? (
+          previousSessions.map((session) => {
+            const firstMessage = messages.find(
+              msg => msg.type === 'user' && msg.sessionId === session.session_id
+            )?.content || 'New Chat';
+            
+            return (
+              <Button
+                key={session.session_id}
+                variant="ghost"
+                size="sm"
+                onClick={() => loadPreviousSession(session.session_id)}
+                className="w-full group flex flex-col items-start justify-start p-3 hover:bg-fitPurple-50 dark:hover:bg-fitPurple-900/10 rounded-lg transition-all"
+              >
+                <div className="flex items-center w-full mb-1">
+                  <MessageSquare className="h-4 w-4 mr-2 text-fitPurple-500" />
+                  <span className="text-sm font-medium truncate">
+                    {firstMessage.length > 30 
+                      ? `${firstMessage.substring(0, 30)}...` 
+                      : firstMessage}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
+                  <span>
+                    {session.created_at && new Date(session.created_at).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </span>
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    View Chat →
+                  </span>
+                </div>
+              </Button>
+            );
+          })
+        ) : (
+          <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+            No previous conversations found.
+          </p>
+        )}
+      </div>
+    
                     )}
                   </div>
                 </ScrollArea>
@@ -698,7 +753,46 @@ const Trainer = () => {
           </div>
         </div>
       </div>
-    </MainLayout>
+    
+      
+      
+        
+          
+            
+              
+                
+                  
+                    
+                      
+                    
+                    
+                      
+                        {message.content}
+                        
+                      
+                    
+                  
+                
+              
+            
+          
+        
+      
+      
+        {messages.map((message) => (
+          <ChatMessage
+            key={message.id}
+            content={message.content}
+            type={message.type}
+            timestamp={message.timestamp}
+            isTyping={message.isTyping}
+            onToggleFullscreen={() => {}}
+            isFullscreen={false}
+            userAvatarUrl={supabase.auth.currentUser?.user_metadata?.avatar_url}
+          />
+        ))}
+      
+    
   );
 };
 
