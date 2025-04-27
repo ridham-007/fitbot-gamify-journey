@@ -22,7 +22,7 @@ export interface SavedWorkout {
   workout_type: string;
   duration: number;
   calories_burned: number;
-  exercise_data?: WorkoutExercise[];
+  exercise_state?: string;
   completed_at: string;
   user_id: string;
   notes?: string;
@@ -54,10 +54,7 @@ export const WorkoutService = {
       
       if (error || !data) return null;
       
-      return {
-        ...data,
-        exercise_data: data.exercise_data || []  // Initialize with empty array if missing
-      } as SavedWorkout;
+      return data as SavedWorkout;
     } catch (error) {
       console.error('Error fetching last completed workout:', error);
       return null;
@@ -140,7 +137,6 @@ export const WorkoutService = {
     }
     
     try {
-      // Save to completed workouts
       const { data: workoutData, error: workoutError } = await supabase
         .from('workouts')
         .insert({
@@ -148,6 +144,7 @@ export const WorkoutService = {
           workout_type: workout.title,
           duration: workout.duration,
           calories_burned: workout.caloriesBurn,
+          exercise_state: JSON.stringify(completedExercises),
           notes: `Completed ${completedExercises.filter(ex => ex.completed).length} of ${completedExercises.length} exercises`
         })
         .select()
@@ -158,17 +155,16 @@ export const WorkoutService = {
         return { success: false, error: workoutError };
       }
       
-      // Also save final progress to user_workout_progress for consistency
       await supabase
         .from('user_workout_progress')
         .insert({
           user_id: userId,
           workout_type: workout.title,
-          duration: workout.duration * 60, // Convert to seconds
+          duration: workout.duration * 60,
           calories: workout.caloriesBurn,
           intensity: workout.difficulty,
           workout_date: new Date().toISOString().split('T')[0],
-          satisfaction_rating: 5, // Default high rating for completed workouts
+          satisfaction_rating: 5,
           is_completed: true,
           current_exercise_index: completedExercises.length - 1,
           exercise_state: JSON.stringify(completedExercises)
@@ -198,12 +194,7 @@ export const WorkoutService = {
         return { success: false, error, data: [] };
       }
       
-      const typedData = data.map(workout => ({
-        ...workout,
-        exercise_data: workout.exercise_data || [] // Initialize with empty array if missing
-      })) as SavedWorkout[];
-      
-      return { success: true, data: typedData || [] };
+      return { success: true, data: data as SavedWorkout[] };
     } catch (error) {
       console.error('Exception when fetching recent workouts:', error);
       return { success: false, error, data: [] };
@@ -247,11 +238,10 @@ export const WorkoutService = {
         }
       }
       
-      // Find default workout with same title or use defaultWorkout
       const workout = {
         title: progressData.workout_type,
         description: `Resumed ${progressData.workout_type} workout`,
-        duration: Math.ceil((progressData.duration || 0) / 60), // Convert seconds to minutes
+        duration: Math.ceil((progressData.duration || 0) / 60),
         difficulty: progressData.intensity || 'Intermediate',
         caloriesBurn: progressData.calories || 300,
         exercises: exercises

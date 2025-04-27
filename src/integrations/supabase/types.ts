@@ -395,9 +395,13 @@ export type Database = {
         Row: {
           calories: number | null
           created_at: string
+          current_exercise_index: number | null
           duration: number
+          exercise_state: string | null
           id: string
           intensity: string | null
+          is_completed: boolean | null
+          is_resting: boolean | null
           satisfaction_rating: number | null
           user_id: string
           workout_date: string
@@ -406,9 +410,13 @@ export type Database = {
         Insert: {
           calories?: number | null
           created_at?: string
+          current_exercise_index?: number | null
           duration: number
+          exercise_state?: string | null
           id?: string
           intensity?: string | null
+          is_completed?: boolean | null
+          is_resting?: boolean | null
           satisfaction_rating?: number | null
           user_id: string
           workout_date?: string
@@ -417,9 +425,13 @@ export type Database = {
         Update: {
           calories?: number | null
           created_at?: string
+          current_exercise_index?: number | null
           duration?: number
+          exercise_state?: string | null
           id?: string
           intensity?: string | null
+          is_completed?: boolean | null
+          is_resting?: boolean | null
           satisfaction_rating?: number | null
           user_id?: string
           workout_date?: string

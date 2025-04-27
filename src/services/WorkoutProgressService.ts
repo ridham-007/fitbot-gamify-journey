@@ -50,7 +50,7 @@ export const WorkoutProgressService = {
           user_id: userId,
           workout_type: progressData.workout_type,
           duration: progressData.total_time,
-          calories: progressData.calories || Math.round((progressData.total_time || 0) * 2), // Estimate calories if not provided
+          calories: progressData.calories || Math.round((progressData.total_time || 0) * 2),
           intensity: progressData.intensity || 'medium',
           workout_date: new Date().toISOString().split('T')[0],
           current_exercise_index: progressData.current_exercise_index || 0,
@@ -81,7 +81,6 @@ export const WorkoutProgressService = {
         .from('user_workout_progress')
         .select('*')
         .eq('user_id', userId)
-        .eq('is_completed', false)
         .order('created_at', { ascending: false })
         .limit(5);
 
