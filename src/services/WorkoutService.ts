@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 interface WorkoutExercise {
@@ -51,13 +50,7 @@ interface UserWorkoutProgress {
 export const WorkoutService = {
   async getLastCompletedWorkout(userId: string): Promise<SavedWorkout | null> {
     try {
-      // Use explicit type annotation for the response to prevent excessive type instantiation
-      interface WorkoutResponse {
-        data: SavedWorkout | null;
-        error: any;
-      }
-      
-      const { data, error }: WorkoutResponse = await supabase
+      const result = await supabase
         .from('workouts')
         .select('*')
         .eq('user_id', userId)
@@ -65,6 +58,8 @@ export const WorkoutService = {
         .order('completed_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+      
+      const { data, error } = result;
       
       if (error) {
         console.error('Error fetching last completed workout:', error);
