@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -26,19 +27,48 @@ type Message = {
   isTyping?: boolean;
 };
 
-type Suggestion = {
+type Category = 'weightloss' | 'muscle-gain' | 'general-fitness' | 'flexibility';
+
+type CategoryInfo = {
   id: string;
-  text: string;
-  icon?: React.ReactNode;
-  category: 'workout' | 'diet' | 'goals' | 'health';
+  title: string;
+  description: string;
+  icon: React.ReactNode;
 };
 
-const defaultSuggestions: Suggestion[] = [
-  { id: '1', text: "Create a personalized workout", icon: <Dumbbell className="h-4 w-4" />, category: 'workout' },
-  { id: '2', text: "Help me improve my fitness", icon: <Activity className="h-4 w-4" />, category: 'goals' },
-  { id: '3', text: "Nutrition advice for gains", icon: <Heart className="h-4 w-4" />, category: 'diet' },
-  { id: '4', text: "Track my fitness progress", icon: <ArrowRight className="h-4 w-4" />, category: 'goals' },
-];
+const categories: Record<Category, CategoryInfo> = {
+  'weightloss': {
+    id: 'weightloss',
+    title: 'Weight Loss',
+    description: 'Personalized plans for healthy and sustainable weight loss',
+    icon: <Weight className="h-5 w-5" />,
+  },
+  'muscle-gain': {
+    id: 'muscle-gain',
+    title: 'Muscle Gain',
+    description: 'Build strength and muscle with expert guidance',
+    icon: <BicepsFlexed className="h-5 w-5" />,
+  },
+  'general-fitness': {
+    id: 'general-fitness',
+    title: 'General Fitness',
+    description: 'Improve overall health and fitness level',
+    icon: <Activity className="h-5 w-5" />,
+  },
+  'flexibility': {
+    id: 'flexibility',
+    title: 'Flexibility',
+    description: 'Enhance mobility and reduce muscle tension',
+    icon: <Heart className="h-5 w-5" />,
+  },
+};
+
+const defaultSuggestions = Object.values(categories).map(cat => ({
+  id: cat.id,
+  text: `Start ${cat.title} Journey`,
+  icon: cat.icon,
+  category: cat.id
+}));
 
 const Trainer = () => {
   const navigate = useNavigate();
@@ -47,11 +77,11 @@ const Trainer = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [currentSuggestions, setCurrentSuggestions] = useState<Suggestion[]>(defaultSuggestions);
+  const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [exerciseVideos, setExerciseVideos] = useState([]);
-  const [workoutData, setWorkoutData] = useState([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     scrollToBottom();
@@ -68,15 +98,11 @@ const Trainer = () => {
       
       setUserId(session.user.id);
       
-      fetchChatHistory();
-      fetchExerciseVideos();
-      fetchWorkoutData();
-      
       if (messages.length === 0) {
         setMessages([{
           id: '1',
           type: 'ai',
-          content: "Hi! I'm your AI fitness coach. I can help with workout plans, nutrition advice, and fitness tracking. What would you like help with today?",
+          content: "Hi! I'm your AI fitness coach. Let's start by choosing a fitness category that matches your goals. What would you like to focus on?",
           timestamp: new Date(),
         }]);
       }
@@ -85,69 +111,77 @@ const Trainer = () => {
     checkAuth();
   }, [navigate]);
 
-  const fetchChatHistory = async () => {
-    if (!userId) return;
-    
-    const { data, error } = await supabase
-      .from('ai_trainer_chats')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true });
-
-    if (!error && data && data.length > 0) {
-      setMessages(data.map(msg => ({
-        id: msg.id,
-        type: msg.is_user ? 'user' : 'ai',
-        content: msg.message,
-        timestamp: new Date(msg.created_at)
-      })));
-    }
-  };
-
-  const fetchExerciseVideos = async () => {
-    const { data, error } = await supabase
-      .from('exercise_videos')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(3);
-
-    if (!error && data) {
-      setExerciseVideos(data);
-    }
-  };
-
-  const fetchWorkoutData = async () => {
-    if (!userId) return;
-    
-    const { data, error } = await supabase
-      .from('user_workout_progress')
-      .select('*')
-      .eq('user_id', userId)
-      .order('workout_date', { ascending: true })
-      .limit(7);
-
-    if (!error && data) {
-      setWorkoutData(data.map(workout => ({
-        date: new Date(workout.workout_date).toLocaleDateString('en-US', { weekday: 'short' }),
-        duration: workout.duration,
-        calories: workout.calories || 0
-      })));
-    } else if (error) {
-      console.error('Error fetching workout data:', error);
-      setWorkoutData([
-        { date: 'Mon', duration: 45, calories: 320 },
-        { date: 'Tue', duration: 30, calories: 250 },
-        { date: 'Wed', duration: 0, calories: 0 },
-        { date: 'Thu', duration: 60, calories: 450 },
-        { date: 'Fri', duration: 25, calories: 200 },
-        { date: 'Sat', duration: 90, calories: 650 },
-        { date: 'Sun', duration: 20, calories: 180 }
-      ]);
-    }
-  };
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleCategorySelect = async (category: Category) => {
+    setCurrentCategory(category);
+    setSessionId(crypto.randomUUID());
+    
+    const welcomeMessage = {
+      id: Date.now().toString(),
+      type: 'ai' as const,
+      content: `Great choice! Let's focus on ${categories[category].title}. I'll ask you a few questions to provide better guidance.`,
+      timestamp: new Date(),
+    };
+    
+    setMessages(prev => [...prev, welcomeMessage]);
+    await handleSend('', category, true);
+  };
+
+  const handleSend = async (userText: string = input, category: Category | null = currentCategory, isNewSession: boolean = false) => {
+    if ((!userText.trim() && !isNewSession) || !userId) return;
+    
+    if (userText.trim()) {
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        type: 'user',
+        content: userText,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, userMessage]);
+    }
+    
+    setInput('');
+    setIsLoading(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('fitness-ai-chat', {
+        body: { 
+          message: userText || "Let's begin", 
+          userId,
+          category,
+          isNewSession,
+          sessionId
+        }
+      });
+      
+      if (error) throw error;
+      
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'ai',
+        content: data.reply,
+        timestamp: new Date(),
+      };
+      
+      simulateTyping(aiMessage, () => {
+        setIsLoading(false);
+        if (data.suggestedVideos) {
+          setExerciseVideos(data.suggestedVideos);
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error in chat process:', error);
+      toast({
+        title: "Error",
+        description: "Failed to get response from AI trainer.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
   };
 
   const simulateTyping = (message: Message, callback: () => void) => {
@@ -202,139 +236,6 @@ const Trainer = () => {
     typeChar();
   };
 
-  const processUserMessage = async (userText: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('fitness-ai-chat', {
-        body: { message: userText, userId }
-      });
-      
-      if (error) throw error;
-      
-      return data.reply;
-    } catch (error) {
-      console.error('Error processing message:', error);
-      return "I'm having trouble connecting to my fitness database right now. Can you try again in a moment? 🏋️‍♂️";
-    }
-  };
-
-  const handleSend = async () => {
-    if (!input.trim() || !userId) return;
-    
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: input,
-      timestamp: new Date(),
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-    
-    try {
-      await supabase.from('ai_trainer_chats').insert({
-        message: input,
-        is_user: true,
-        user_id: userId
-      });
-      
-      const aiResponse = await processUserMessage(input);
-      
-      const newSuggestions = generateRelevantSuggestions(input, aiResponse);
-      if (newSuggestions.length > 0) {
-        setCurrentSuggestions([
-          ...newSuggestions,
-          ...defaultSuggestions.slice(0, 2)
-        ]);
-      }
-      
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'ai',
-        content: aiResponse,
-        timestamp: new Date(),
-      };
-      
-      simulateTyping(aiMessage, () => {
-        setIsLoading(false);
-      });
-      
-      await supabase.from('ai_trainer_chats').insert({
-        message: aiResponse,
-        is_user: false,
-        user_id: userId
-      });
-    } catch (error) {
-      console.error('Error in chat process:', error);
-      toast({
-        title: "Error",
-        description: "Failed to get response from AI trainer.",
-        variant: "destructive",
-      });
-      setIsLoading(false);
-    }
-  };
-
-  const generateRelevantSuggestions = (userInput: string, aiResponse: string): Suggestion[] => {
-    const lowerInput = userInput.toLowerCase();
-    const lowerResponse = aiResponse.toLowerCase();
-    const suggestions: Suggestion[] = [];
-    
-    if (lowerInput.includes('workout') || lowerInput.includes('exercise') || lowerResponse.includes('workout plan')) {
-      suggestions.push({ 
-        id: 'w1', 
-        text: "Show me upper body exercises", 
-        icon: <BicepsFlexed className="h-4 w-4" />, 
-        category: 'workout' 
-      });
-      suggestions.push({ 
-        id: 'w2', 
-        text: "I need a cardio routine", 
-        icon: <Activity className="h-4 w-4" />, 
-        category: 'workout' 
-      });
-    }
-    
-    if (lowerInput.includes('diet') || lowerInput.includes('food') || lowerInput.includes('eat') || lowerResponse.includes('nutrition')) {
-      suggestions.push({ 
-        id: 'd1', 
-        text: "Protein-rich meal ideas", 
-        icon: <Heart className="h-4 w-4" />, 
-        category: 'diet' 
-      });
-      suggestions.push({ 
-        id: 'd2', 
-        text: "Post-workout nutrition", 
-        icon: <Info className="h-4 w-4" />, 
-        category: 'diet' 
-      });
-    }
-    
-    if (lowerInput.includes('goal') || lowerInput.includes('target') || lowerResponse.includes('goal')) {
-      suggestions.push({ 
-        id: 'g1', 
-        text: "Set a weight loss goal", 
-        icon: <Weight className="h-4 w-4" />, 
-        category: 'goals' 
-      });
-      suggestions.push({ 
-        id: 'g2', 
-        text: "Track my progress", 
-        icon: <BarChart className="h-4 w-4" />, 
-        category: 'goals' 
-      });
-    }
-    
-    return suggestions;
-  };
-
-  const handleSuggestionClick = (suggestion: Suggestion) => {
-    setInput(suggestion.text);
-    setTimeout(() => {
-      document.getElementById('send-button')?.click();
-    }, 100);
-  };
-
   const handleVoiceInput = () => {
     toast({
       title: "Voice Input",
@@ -364,7 +265,7 @@ const Trainer = () => {
               </div>
               <div>
                 <h1 className="text-xl font-bold">AI Fitness Trainer</h1>
-                <p className="text-sm text-fitPurple-100">Your personal coach for workouts, nutrition, and fitness tracking</p>
+                <p className="text-sm text-fitPurple-100">Your personal coach for {currentCategory ? categories[currentCategory].title.toLowerCase() : 'fitness goals'}</p>
               </div>
             </div>
             <Button
@@ -393,6 +294,35 @@ const Trainer = () => {
           )}>
             <div className="flex-grow overflow-auto px-4">
               <div className="max-w-4xl mx-auto py-4 space-y-4">
+                {!currentCategory && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    {Object.entries(categories).map(([key, category]) => (
+                      <motion.div
+                        key={key}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <Card 
+                          className="cursor-pointer hover:shadow-lg transition-all"
+                          onClick={() => handleCategorySelect(key as Category)}
+                        >
+                          <CardContent className="p-6">
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-full bg-fitPurple-100 dark:bg-fitPurple-900 flex items-center justify-center">
+                                {category.icon}
+                              </div>
+                              <div>
+                                <h3 className="font-semibold">{category.title}</h3>
+                                <p className="text-sm text-muted-foreground">{category.description}</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+                
                 <AnimatePresence>
                   {messages.map((message) => (
                     <ChatMessage
@@ -423,70 +353,47 @@ const Trainer = () => {
 
             <div className="bg-white dark:bg-fitDark-800 border-t border-gray-200 dark:border-fitDark-700 p-4">
               <div className="max-w-4xl mx-auto">
-                <div className="mb-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  {currentSuggestions.map((suggestion) => (
-                    <button
-                      key={suggestion.id}
-                      onClick={() => handleSuggestionClick(suggestion)}
-                      className="flex items-center whitespace-nowrap px-3 py-1.5 text-sm bg-gray-100 dark:bg-fitDark-700 hover:bg-gray-200 dark:hover:bg-fitDark-600 rounded-full text-gray-700 dark:text-gray-300 transition-all hover:scale-105 active:scale-95"
+                {currentCategory && (
+                  <div className="flex items-end space-x-2">
+                    <div className="flex-grow">
+                      <Textarea
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Ask your AI fitness trainer anything..."
+                        className="min-h-[60px] resize-none focus:border-fitPurple-400 focus:ring-fitPurple-400"
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleVoiceInput}
+                      className="rounded-full h-10 w-10 transition-all hover:bg-fitPurple-50 hover:text-fitPurple-600 hover:border-fitPurple-300"
                     >
-                      {suggestion.icon && <span className="mr-1.5">{suggestion.icon}</span>}
-                      {suggestion.text}
-                    </button>
-                  ))}
-                  <button
-                    className="flex items-center whitespace-nowrap px-3 py-1.5 text-sm bg-gray-100 dark:bg-fitDark-700 hover:bg-gray-200 dark:hover:bg-fitDark-600 rounded-full text-gray-700 dark:text-gray-300 transition-all hover:scale-105 active:scale-95"
-                  >
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    More suggestions
-                  </button>
-                </div>
-                
-                <div className="flex items-end space-x-2">
-                  <div className="flex-grow">
-                    <Textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Ask your AI fitness trainer anything..."
-                      className="min-h-[60px] resize-none focus:border-fitPurple-400 focus:ring-fitPurple-400"
-                    />
+                      <Mic className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                    </Button>
+                    <Button
+                      onClick={() => handleSend()}
+                      disabled={!input.trim() || isLoading || !userId}
+                      className="rounded-full h-10 w-10 p-0 bg-fitPurple-600 hover:bg-fitPurple-700 transition-all active:scale-95"
+                    >
+                      <Send className="h-5 w-5" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleVoiceInput}
-                    className="rounded-full h-10 w-10 transition-all hover:bg-fitPurple-50 hover:text-fitPurple-600 hover:border-fitPurple-300"
-                  >
-                    <Mic className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                  </Button>
-                  <Button
-                    id="send-button"
-                    onClick={handleSend}
-                    disabled={!input.trim() || isLoading || !userId}
-                    className="rounded-full h-10 w-10 p-0 bg-fitPurple-600 hover:bg-fitPurple-700 transition-all active:scale-95"
-                  >
-                    <Send className="h-5 w-5" />
-                  </Button>
-                </div>
+                )}
               </div>
             </div>
           </div>
 
           {!isFullscreen && (
             <div className="lg:w-1/3 border-l border-gray-200 dark:border-fitDark-700 bg-white dark:bg-fitDark-800 overflow-auto">
-              <div className="p-4 space-y-6">
-                <WorkoutChart
-                  data={workoutData}
-                  title="Weekly Workout Progress"
-                />
-                
+              <div className="p-4 space-y-6">                
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold flex items-center gap-2">
                     <Video className="h-5 w-5" />
-                    Exercise Videos
+                    Recommended Videos
                   </h3>
-                  {exerciseVideos.map((video) => (
+                  {exerciseVideos.map((video: any) => (
                     <ExerciseVideo
                       key={video.id}
                       name={video.name}

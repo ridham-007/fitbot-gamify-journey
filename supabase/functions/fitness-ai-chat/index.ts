@@ -8,19 +8,56 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const categoryQuestions = {
+  'weightloss': [
+    "What's your current weight and target weight?",
+    "How many days per week can you commit to exercise?",
+    "Do you have any dietary restrictions?",
+    "What's your preferred type of exercise (cardio, strength training, etc.)?",
+  ],
+  'muscle-gain': [
+    "What's your current fitness level?",
+    "Do you have access to a gym?",
+    "Any specific muscle groups you want to focus on?",
+    "How much time can you dedicate to workouts?",
+  ],
+  'general-fitness': [
+    "What are your main fitness goals?",
+    "Do you have any health conditions to consider?",
+    "What's your current activity level?",
+    "What type of exercises do you enjoy?",
+  ],
+  'flexibility': [
+    "Have you done yoga or stretching before?",
+    "Any areas of tightness or limited mobility?",
+    "How much time can you dedicate to flexibility training?",
+    "Do you have any injuries to consider?",
+  ]
+};
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { message, userId } = await req.json();
+    const { message, userId, category, isNewSession } = await req.json();
     
-    // Construct a prompt with fitness expertise context and video/chart suggestions
+    // Generate appropriate questions if it's a new session
+    let initialContext = '';
+    if (isNewSession && category && categoryQuestions[category]) {
+      initialContext = `Please ask the user these questions one at a time to provide better guidance:
+      ${categoryQuestions[category].join('\n')}
+      
+      Start by asking the first question in a friendly way. Wait for the user's response before moving to the next question.`;
+    }
+    
+    // Construct the prompt
     const formattedPrompt = `
 You are FitCoach AI, an expert fitness trainer and nutritionist with over 10 years of experience.
-Provide personalized, engaging, and expert advice about fitness and nutrition.
+Category focus: ${category || 'general fitness'}
+
+${initialContext}
 
 When responding:
 1. Give friendly, specific advice using emojis 🏋️‍♀️ and clear formatting
@@ -53,7 +90,7 @@ User message: ${message}
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4',
         messages: [
           { 
             role: 'system', 
@@ -71,7 +108,7 @@ User message: ${message}
       throw new Error(`OpenAI API error: ${data.error.message}`);
     }
 
-    // Store the chat message in the database
+    // Get relevant exercise video suggestions based on keywords in the response
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     
@@ -81,27 +118,31 @@ User message: ${message}
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     );
 
-    // Get random exercise video suggestions based on keywords in the response
+    const reply = data.choices[0].message.content;
+    
+    // Extract keywords from the reply for video suggestions
+    const keywords = ['cardio', 'strength', 'hiit', 'yoga', 'stretching']
+      .filter(keyword => reply.toLowerCase().includes(keyword));
+
+    // Get video suggestions based on extracted keywords
     const { data: videos } = await supabaseClient
       .from('exercise_videos')
       .select('*')
-      .limit(2);
+      .in('category', keywords.length ? keywords : ['HIIT', 'Strength', 'Yoga'])
+      .limit(3);
 
-    // Get user's recent workout progress
-    const { data: workoutProgress } = await supabaseClient
-      .from('user_workout_progress')
-      .select('*')
-      .eq('user_id', userId)
-      .order('workout_date', { ascending: false })
-      .limit(7);
-
-    const reply = data.choices[0].message.content;
+    // Store the chat message
+    await supabaseClient
+      .from('ai_trainer_chats')
+      .insert([
+        { user_id: userId, message, is_user: true, category },
+        { user_id: userId, message: reply, is_user: false, category }
+      ]);
     
     return new Response(
       JSON.stringify({ 
         reply,
         suggestedVideos: videos || [],
-        workoutProgress: workoutProgress || [],
       }),
       { 
         headers: { 
@@ -117,8 +158,7 @@ User message: ${message}
       JSON.stringify({ 
         error: error.message,
         reply: "I'm having trouble connecting right now. Can you try again in a moment? 🏋️‍♂️",
-        suggestedVideos: [],
-        workoutProgress: []
+        suggestedVideos: []
       }),
       { 
         status: 500,
