@@ -1,13 +1,14 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
-interface WorkoutExercise {
+export interface WorkoutExercise {
   name: string;
   duration: number;
   rest: number;
   completed: boolean;
 }
 
-interface WorkoutData {
+export interface WorkoutData {
   title: string;
   description: string;
   duration: number;
@@ -16,18 +17,18 @@ interface WorkoutData {
   exercises: WorkoutExercise[];
 }
 
-interface SavedWorkout {
+export interface SavedWorkout {
   id: string;
   workout_type: string;
   duration: number;
   calories_burned: number;
-  exercise_data: WorkoutExercise[];
+  exercise_data?: WorkoutExercise[];
   completed_at: string;
   user_id: string;
   notes?: string;
 }
 
-interface WorkoutProgress {
+export interface WorkoutProgress {
   currentExerciseIndex: number;
   timer: number;
   isResting: boolean;
@@ -55,7 +56,7 @@ export const WorkoutService = {
       
       return {
         ...data,
-        exercise_data: data.exercise_data || []
+        exercise_data: []  // Initialize with empty array since it might be missing
       } as SavedWorkout;
     } catch (error) {
       console.error('Error fetching last completed workout:', error);
@@ -93,6 +94,36 @@ export const WorkoutService = {
     }
   },
   
+  async pauseWorkout(userId: string, workout: WorkoutData, currentProgress: any): Promise<{ success: boolean; error?: any; data?: any }> {
+    if (!userId) {
+      return { success: false, error: 'No user ID provided' };
+    }
+    
+    try {
+      const { data: progressData, error: progressError } = await supabase
+        .from('user_workout_progress')
+        .insert({
+          user_id: userId,
+          workout_type: workout.title,
+          duration: currentProgress.totalTime || 0,
+          calories: Math.round((currentProgress.totalTime / workout.duration) * workout.caloriesBurn),
+          intensity: workout.difficulty
+        })
+        .select()
+        .single();
+      
+      if (progressError) {
+        console.error('Error pausing workout:', progressError);
+        return { success: false, error: progressError };
+      }
+      
+      return { success: true, data: progressData };
+    } catch (error) {
+      console.error('Exception when pausing workout:', error);
+      return { success: false, error };
+    }
+  },
+  
   async completeWorkout(userId: string, workout: WorkoutData, completedExercises: WorkoutExercise[], xpEarned: number = 0): Promise<{ success: boolean; error?: any; data?: any }> {
     if (!userId) {
       return { success: false, error: 'No user ID provided' };
@@ -106,7 +137,6 @@ export const WorkoutService = {
           workout_type: workout.title,
           duration: workout.duration,
           calories_burned: workout.caloriesBurn,
-          exercise_data: completedExercises, // This must match SavedWorkout interface
           notes: `Completed ${completedExercises.filter(ex => ex.completed).length} of ${completedExercises.length} exercises`
         })
         .select()
@@ -141,7 +171,11 @@ export const WorkoutService = {
         return { success: false, error, data: [] };
       }
       
-      const typedData = data as SavedWorkout[];
+      const typedData = data.map(workout => ({
+        ...workout,
+        exercise_data: [] // Initialize with empty array
+      })) as SavedWorkout[];
+      
       return { success: true, data: typedData || [] };
     } catch (error) {
       console.error('Exception when fetching recent workouts:', error);

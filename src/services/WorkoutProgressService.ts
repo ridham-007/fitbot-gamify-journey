@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-interface WorkoutSession {
+export interface WorkoutSession {
   id: string;
   user_id: string;
   workout_type: string;
@@ -11,6 +11,12 @@ interface WorkoutSession {
   total_time: number;
   completed_exercises: number;
   created_at: string;
+  // Add fields that exist in the database
+  duration?: number;
+  calories?: number;
+  intensity?: string;
+  satisfaction_rating?: number;
+  workout_date?: string;
 }
 
 export const WorkoutProgressService = {
@@ -18,7 +24,7 @@ export const WorkoutProgressService = {
     if (!userId) return { success: false, error: 'No user ID provided' };
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('user_workout_progress')
         .upsert({
           user_id: userId,
@@ -26,15 +32,14 @@ export const WorkoutProgressService = {
           duration: progressData.total_time,
           created_at: new Date().toISOString(),
         })
-        .select()
-        .single();
+        .select();
 
       if (error) {
         console.error('Error saving workout progress:', error);
         return { success: false, error };
       }
 
-      return { success: true, data };
+      return { success: true };
     } catch (error) {
       console.error('Exception when saving workout progress:', error);
       return { success: false, error };
@@ -57,7 +62,25 @@ export const WorkoutProgressService = {
         return [];
       }
 
-      return data || [];
+      // Transform the data to match WorkoutSession interface
+      const sessions: WorkoutSession[] = data.map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        workout_type: item.workout_type,
+        current_exercise_index: 0,
+        timer: 0,
+        is_resting: false,
+        total_time: item.duration || 0,
+        completed_exercises: 0,
+        created_at: item.created_at,
+        duration: item.duration,
+        calories: item.calories,
+        intensity: item.intensity,
+        satisfaction_rating: item.satisfaction_rating,
+        workout_date: item.workout_date
+      }));
+
+      return sessions;
     } catch (error) {
       console.error('Exception when fetching recent sessions:', error);
       return [];

@@ -17,6 +17,7 @@ import ExerciseDemo from '@/components/dashboard/ExerciseDemo';
 import WorkoutProgress from '@/components/dashboard/WorkoutProgress';
 import WorkoutService from '@/services/WorkoutService';
 import SimpleWorkoutProgress from '@/components/dashboard/SimpleWorkoutProgress';
+import { WorkoutProgressService } from '@/services/WorkoutProgressService';
 
 const defaultWorkout = {
   title: "Full Body HIIT",
