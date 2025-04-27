@@ -104,7 +104,7 @@ export const WorkoutProgressService = {
         return [];
       }
 
-      const sessions: WorkoutSession[] = (data || []).map(item => ({
+      const sessions: WorkoutSession[] = (data || []).map((item: DatabaseWorkoutProgress) => ({
         id: item.id,
         user_id: item.user_id,
         workout_type: item.workout_type,
