@@ -1,4 +1,6 @@
+
 import { supabase } from '@/integrations/supabase/client';
+import { PostgrestSingleResponse } from '@supabase/supabase-js';
 
 interface WorkoutExercise {
   name: string;
@@ -50,16 +52,15 @@ interface UserWorkoutProgress {
 export const WorkoutService = {
   async getLastCompletedWorkout(userId: string): Promise<SavedWorkout | null> {
     try {
-      const result = await supabase
+      // Use a type assertion to avoid deep type instantiation
+      const { data, error } = await supabase
         .from('workouts')
         .select('*')
         .eq('user_id', userId)
         .eq('completed_at::date', new Date().toISOString().split('T')[0])
         .order('completed_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
-      
-      const { data, error } = result;
+        .maybeSingle() as PostgrestSingleResponse<SavedWorkout>;
       
       if (error) {
         console.error('Error fetching last completed workout:', error);
@@ -70,12 +71,11 @@ export const WorkoutService = {
       if (!data) return null;
       
       // Ensure exercise_data is present (even if empty array)
-      const workout = data as SavedWorkout;
-      if (!workout.exercise_data) {
-        workout.exercise_data = [];
+      if (!data.exercise_data) {
+        data.exercise_data = [];
       }
       
-      return workout;
+      return data;
     } catch (error) {
       console.error('Exception when fetching last completed workout:', error);
       return null;
