@@ -38,6 +38,7 @@ export interface WorkoutSession {
   workout_date?: string;
   exercise_state?: string;
   is_completed?: boolean;
+  timer_position?: number;
 }
 
 // Exercise demonstration data
@@ -118,7 +119,8 @@ export const WorkoutProgressService = {
         intensity: item.intensity,
         workout_date: item.workout_date,
         exercise_state: item.exercise_state,
-        is_completed: item.is_completed
+        is_completed: item.is_completed,
+        timer_position: item.timer_position
       }));
 
       return sessions;
@@ -172,7 +174,8 @@ export const WorkoutProgressService = {
         intensity: data.intensity,
         workout_date: data.workout_date,
         exercise_state: data.exercise_state,
-        is_completed: data.is_completed
+        is_completed: data.is_completed,
+        timer_position: data.timer_position
       };
     } catch (error) {
       console.error('Exception when fetching active session:', error);
