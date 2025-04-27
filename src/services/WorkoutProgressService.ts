@@ -30,6 +30,9 @@ export const WorkoutProgressService = {
           user_id: userId,
           workout_type: progressData.workout_type,
           duration: progressData.total_time,
+          calories: progressData.calories || Math.round((progressData.total_time || 0) * 2), // Estimate calories if not provided
+          intensity: progressData.intensity || 'medium',
+          workout_date: new Date().toISOString().split('T')[0],
           created_at: new Date().toISOString(),
         })
         .select();
@@ -84,6 +87,46 @@ export const WorkoutProgressService = {
     } catch (error) {
       console.error('Exception when fetching recent sessions:', error);
       return [];
+    }
+  },
+  
+  async getActiveSession(userId: string): Promise<WorkoutSession | null> {
+    if (!userId) return null;
+    
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('user_workout_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('workout_date', today)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error || !data) {
+        console.error('Error fetching active session:', error);
+        return null;
+      }
+      
+      return {
+        id: data.id,
+        user_id: data.user_id,
+        workout_type: data.workout_type,
+        current_exercise_index: 0,
+        timer: 0,
+        is_resting: false,
+        total_time: data.duration || 0,
+        completed_exercises: 0,
+        created_at: data.created_at,
+        duration: data.duration,
+        calories: data.calories,
+        intensity: data.intensity,
+        workout_date: data.workout_date
+      };
+    } catch (error) {
+      console.error('Exception when fetching active session:', error);
+      return null;
     }
   }
 };

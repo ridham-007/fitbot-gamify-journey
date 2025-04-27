@@ -17,7 +17,8 @@ import ExerciseDemo from '@/components/dashboard/ExerciseDemo';
 import WorkoutProgress from '@/components/dashboard/WorkoutProgress';
 import WorkoutService from '@/services/WorkoutService';
 import SimpleWorkoutProgress from '@/components/dashboard/SimpleWorkoutProgress';
-import { WorkoutProgressService } from '@/services/WorkoutProgressService';
+import { WorkoutProgressService, WorkoutSession } from '@/services/WorkoutProgressService';
+import PreviousWorkouts from '@/components/dashboard/PreviousWorkouts';
 
 const defaultWorkout = {
   title: "Full Body HIIT",
@@ -134,6 +135,12 @@ const Dashboard = () => {
     staleTime: 10 * 60 * 1000,
   });
 
+  const { data: previousSessions = [], refetch: refetchSessions } = useQuery({
+    queryKey: ['previousWorkoutSessions', user?.id],
+    queryFn: () => WorkoutProgressService.getRecentSessions(user?.id || ''),
+    enabled: !!user?.id,
+  });
+
   const progressMutation = useMutation({
     mutationFn: async ({ userId, workout, progress }: { 
       userId: string; 
@@ -157,6 +164,7 @@ const Dashboard = () => {
         title: "Workout Paused",
         description: "Your progress has been saved. You can resume later.",
       });
+      refetchSessions();
     },
     onError: (error) => {
       toast({
@@ -176,6 +184,7 @@ const Dashboard = () => {
       });
       queryClient.invalidateQueries({ queryKey: ['userStats', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['userAchievements', user?.id] });
+      refetchSessions();
     },
     onError: (error) => {
       toast({
@@ -186,8 +195,8 @@ const Dashboard = () => {
     }
   });
 
-  const { data: currentExerciseDemo } = useQuery({
-    queryKey: ['exercise-demo', currentExerciseIndex, isWorkoutStarted],
+  const { data: currentExerciseDemo, isLoading: isExerciseDemoLoading } = useQuery({
+    queryKey: ['exercise-demo', mockWorkout.exercises[currentExerciseIndex]?.name, isWorkoutStarted],
     queryFn: async () => {
       if (!isWorkoutStarted) return null;
       
@@ -195,9 +204,9 @@ const Dashboard = () => {
         .from('exercise_demonstrations')
         .select('*')
         .eq('exercise_name', mockWorkout.exercises[currentExerciseIndex].name)
-        .single();
+        .maybeSingle();
         
-      if (error) {
+      if (error || !data) {
         console.error('Error fetching exercise demo:', error);
         return {
           exercise_name: mockWorkout.exercises[currentExerciseIndex].name,
@@ -215,7 +224,7 @@ const Dashboard = () => {
       
       return data;
     },
-    enabled: isWorkoutStarted && currentExerciseIndex >= 0
+    enabled: isWorkoutStarted && currentExerciseIndex >= 0 && mockWorkout.exercises.length > 0
   });
 
   useEffect(() => {
@@ -245,9 +254,9 @@ const Dashboard = () => {
   useEffect(() => {
     const checkForSavedWorkout = async () => {
       if (user?.id && !isWorkoutStarted) {
-        const result = await WorkoutService.resumeWorkout(user.id);
+        const activeSession = await WorkoutProgressService.getActiveSession(user.id);
         
-        if (result.success && result.data) {
+        if (activeSession) {
           toast({
             title: "Saved Workout Found",
             description: "You can resume your previous workout.",
@@ -256,13 +265,15 @@ const Dashboard = () => {
                 variant="outline" 
                 size="sm" 
                 onClick={() => {
-                  setMockWorkout(result.data.workout);
-                  setCurrentExerciseIndex(result.data.currentProgress.currentExerciseIndex || 0);
-                  setTimer(result.data.currentProgress.timer || 0);
-                  setIsResting(result.data.currentProgress.isResting || false);
+                  const savedWorkout = { ...defaultWorkout, title: activeSession.workout_type };
+                  
+                  setMockWorkout(savedWorkout);
+                  setCurrentExerciseIndex(0);
+                  setTimer(0);
+                  setIsResting(false);
                   setIsWorkoutStarted(true);
                   setIsPaused(false);
-                  setTotalWorkoutTime(result.data.currentProgress.totalTime || 0);
+                  setTotalWorkoutTime(activeSession.duration || 0);
                   
                   toast({
                     title: "Workout Resumed",
@@ -384,6 +395,23 @@ const Dashboard = () => {
     toast({
       title: "Workout Resumed",
       description: "Let's keep going!",
+    });
+  };
+
+  const handleResumeSession = (session: WorkoutSession) => {
+    const savedWorkout = { ...defaultWorkout, title: session.workout_type };
+    
+    setMockWorkout(savedWorkout);
+    setCurrentExerciseIndex(0);
+    setTimer(0);
+    setIsResting(false);
+    setIsWorkoutStarted(true);
+    setIsPaused(false);
+    setTotalWorkoutTime(session.duration || 0);
+    
+    toast({
+      title: "Workout Resumed",
+      description: `Resuming ${session.workout_type} workout!`,
     });
   };
 
@@ -632,6 +660,13 @@ const Dashboard = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {!isWorkoutStarted && (
+                <PreviousWorkouts
+                  sessions={previousSessions}
+                  onResumeSession={handleResumeSession}
+                />
+              )}
             </div>
 
             <div className="space-y-6">

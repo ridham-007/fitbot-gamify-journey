@@ -56,7 +56,7 @@ export const WorkoutService = {
       
       return {
         ...data,
-        exercise_data: []  // Initialize with empty array since it might be missing
+        exercise_data: data.exercise_data || []  // Initialize with empty array if missing
       } as SavedWorkout;
     } catch (error) {
       console.error('Error fetching last completed workout:', error);
@@ -77,7 +77,8 @@ export const WorkoutService = {
           workout_type: workout.title,
           duration: progress,
           calories: Math.round((progress / workout.duration) * workout.caloriesBurn),
-          intensity: workout.difficulty
+          intensity: workout.difficulty,
+          workout_date: new Date().toISOString().split('T')[0]
         })
         .select()
         .single();
@@ -107,7 +108,8 @@ export const WorkoutService = {
           workout_type: workout.title,
           duration: currentProgress.totalTime || 0,
           calories: Math.round((currentProgress.totalTime / workout.duration) * workout.caloriesBurn),
-          intensity: workout.difficulty
+          intensity: workout.difficulty,
+          workout_date: new Date().toISOString().split('T')[0]
         })
         .select()
         .single();
@@ -130,6 +132,7 @@ export const WorkoutService = {
     }
     
     try {
+      // Save to completed workouts
       const { data: workoutData, error: workoutError } = await supabase
         .from('workouts')
         .insert({
@@ -146,6 +149,19 @@ export const WorkoutService = {
         console.error('Error saving completed workout:', workoutError);
         return { success: false, error: workoutError };
       }
+      
+      // Also save final progress to user_workout_progress for consistency
+      await supabase
+        .from('user_workout_progress')
+        .insert({
+          user_id: userId,
+          workout_type: workout.title,
+          duration: workout.duration * 60, // Convert to seconds
+          calories: workout.caloriesBurn,
+          intensity: workout.difficulty,
+          workout_date: new Date().toISOString().split('T')[0],
+          satisfaction_rating: 5 // Default high rating for completed workouts
+        });
       
       return { success: true, data: workoutData };
     } catch (error) {
@@ -173,7 +189,7 @@ export const WorkoutService = {
       
       const typedData = data.map(workout => ({
         ...workout,
-        exercise_data: [] // Initialize with empty array
+        exercise_data: workout.exercise_data || [] // Initialize with empty array if missing
       })) as SavedWorkout[];
       
       return { success: true, data: typedData || [] };
@@ -202,9 +218,33 @@ export const WorkoutService = {
         return { success: false, error: 'No workout in progress' };
       }
       
+      // Find default workout with same title or use defaultWorkout
+      const workout = {
+        title: progressData.workout_type,
+        description: `Resumed ${progressData.workout_type} workout`,
+        duration: Math.ceil((progressData.duration || 0) / 60), // Convert seconds to minutes
+        difficulty: progressData.intensity || 'Intermediate',
+        caloriesBurn: progressData.calories || 300,
+        exercises: [
+          { name: "Jumping Jacks", duration: 45, rest: 15, completed: false },
+          { name: "Push-ups", duration: 45, rest: 15, completed: false },
+          { name: "Mountain Climbers", duration: 45, rest: 15, completed: false },
+          { name: "Squats", duration: 45, rest: 15, completed: false },
+          { name: "Plank", duration: 45, rest: 15, completed: false },
+        ]
+      };
+      
       return {
         success: true,
-        data: progressData
+        data: {
+          workout,
+          currentProgress: {
+            currentExerciseIndex: 0,
+            timer: 0,
+            isResting: false,
+            totalTime: progressData.duration || 0
+          }
+        }
       };
     } catch (error) {
       console.error('Error resuming workout:', error);
