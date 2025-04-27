@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
@@ -35,7 +36,6 @@ const Signup = () => {
   }, [isLoggedIn, navigate]);
 
   const handleAccountSubmit = (values: AccountFormValues) => {
-    console.log("Account form submitted:", values);
     setAccountData(values);
     setCurrentStep(2);
   };
@@ -74,9 +74,9 @@ const Signup = () => {
       if (data) {
         toast({
           title: "Account created!",
-          description: "Welcome to FitBot. Your fitness journey begins now!",
+          description: "Please check your email to verify your account and then login.",
         });
-        navigate('/dashboard');
+        navigate('/login');
       }
     } catch (error: any) {
       console.error("Signup error:", error);

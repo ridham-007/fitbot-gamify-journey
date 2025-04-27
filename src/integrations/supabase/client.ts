@@ -16,10 +16,13 @@ export const supabase = createClient<Database>(
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true
+      detectSessionInUrl: true,
+      storage: localStorage,
     },
     global: {
-      fetch: fetch
+      headers: {
+        'X-Client-Info': 'fitbot-app',
+      },
     }
   }
 );

@@ -31,28 +31,36 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsLoggedIn(!!session);
+      (event, currentSession) => {
+        console.log("Auth state changed:", event, currentSession?.user?.email);
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        setIsLoggedIn(!!currentSession);
         
         // If user just signed in, fetch their stats
-        if (event === 'SIGNED_IN' && session?.user) {
+        if (event === 'SIGNED_IN' && currentSession?.user) {
+          // Use setTimeout to avoid potential deadlocks
           setTimeout(() => {
-            fetchUserStats(session.user.id);
+            fetchUserStats(currentSession.user.id);
           }, 0);
+        } else if (event === 'SIGNED_OUT') {
+          // Reset user stats on sign out
+          setUserLevel(1);
+          setUserXp(0);
+          setStreak(0);
         }
       }
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoggedIn(!!session);
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      console.log("Initial session check:", currentSession?.user?.email);
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      setIsLoggedIn(!!currentSession);
       
-      if (session?.user) {
-        fetchUserStats(session.user.id);
+      if (currentSession?.user) {
+        fetchUserStats(currentSession.user.id);
       }
     });
 
@@ -61,11 +69,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const fetchUserStats = async (userId: string) => {
     try {
+      // First check if user_stats entry exists for this user
       const { data, error } = await supabase
         .from('user_stats')
-        .select('level, xp, streak')
+        .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching user stats:', error);
@@ -73,9 +82,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       if (data) {
+        // User stats exist, update state
         setUserLevel(data.level || 1);
         setUserXp(data.xp || 0);
         setStreak(data.streak || 0);
+      } else {
+        // No user stats found, create a new entry
+        console.log('Creating new user_stats entry for user:', userId);
+        const { error: insertError } = await supabase
+          .from('user_stats')
+          .insert({ 
+            user_id: userId,
+            level: 1,
+            xp: 0,
+            streak: 0,
+            workouts_completed: 0
+          });
+          
+        if (insertError) {
+          console.error('Error creating user stats:', insertError);
+        }
       }
     } catch (error) {
       console.error('Error in fetchUserStats:', error);
