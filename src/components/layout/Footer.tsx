@@ -9,7 +9,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-1">
             <Link to="/" className="text-xl font-bold text-fitPurple-600">
-              FitBot
+              BubblyFit AI
             </Link>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               AI-powered fitness with gamification for a more engaging workout experience.

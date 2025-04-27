@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -43,7 +42,7 @@ const About = () => {
             Our Mission
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-3xl mx-auto">
-            We're on a mission to revolutionize fitness by combining artificial intelligence with gamification, making workouts more engaging and effective for everyone.
+            We're on a mission to revolutionize fitness by combining artificial intelligence with gamification, making workouts more engaging and effective for everyone through BubblyFit AI.
           </p>
         </div>
       </section>
@@ -73,7 +72,7 @@ const About = () => {
           <h2 className="text-3xl font-bold mb-8">Our Story</h2>
           <div className="space-y-6 text-lg text-gray-600 dark:text-gray-400">
             <p>
-              FitBot was born from a simple observation: traditional fitness apps weren't engaging enough to keep users motivated long-term. We saw an opportunity to combine the power of AI with gamification to create something truly unique.
+              BubblyFit AI was born from a simple observation: traditional fitness apps weren't engaging enough to keep users motivated long-term. We saw an opportunity to combine the power of AI with gamification to create something truly unique.
             </p>
             <p>
               Starting in 2024, our team of fitness enthusiasts, AI experts, and game designers came together to build a platform that makes fitness fun and accessible to everyone.
@@ -89,7 +88,7 @@ const About = () => {
       <section className="py-20 bg-fitPurple-600">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
           <h2 className="text-3xl font-bold mb-4">
-            Join Our Fitness Revolution
+            Join BubblyFit AI's Fitness Revolution
           </h2>
           <p className="text-lg mb-8 text-fitPurple-100">
             Be part of a community that's transforming the way people approach fitness.
