@@ -54,9 +54,10 @@ export const WorkoutService = {
       
       if (error || !data) return null;
       
+      // Fix: Ensure we handle missing exercise_data safely
       return {
         ...data,
-        exercise_data: data.exercise_data || []  // Initialize with empty array if missing
+        exercise_data: [] // Initialize with empty array since it doesn't exist in the database
       } as SavedWorkout;
     } catch (error) {
       console.error('Error fetching last completed workout:', error);
@@ -187,9 +188,10 @@ export const WorkoutService = {
         return { success: false, error, data: [] };
       }
       
+      // Fix: Map the data to include exercise_data as an empty array since it doesn't exist in DB
       const typedData = data.map(workout => ({
         ...workout,
-        exercise_data: workout.exercise_data || [] // Initialize with empty array if missing
+        exercise_data: [] // Initialize with empty array since it doesn't exist in the database
       })) as SavedWorkout[];
       
       return { success: true, data: typedData || [] };
