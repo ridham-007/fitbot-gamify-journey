@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Play, Calendar, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react';
+import { Clock, Play, Calendar, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
 import { WorkoutSession } from '@/services/WorkoutProgressService';
 import { cn } from '@/lib/utils';
 
@@ -46,13 +46,6 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
     });
   };
 
-  // Calculate calorie burn rate based on duration
-  const calculateCalories = (duration: number | undefined, intensity: string | undefined) => {
-    if (!duration) return 0;
-    const baseRate = intensity === 'high' ? 10 : intensity === 'medium' ? 8 : 6;
-    return Math.round(duration / 60 * baseRate);
-  };
-
   return (
     <Card>
       <CardHeader className="border-b">
@@ -72,8 +65,8 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
             >
               <div className="flex justify-between items-start">
                 <div className="flex items-start">
-                  <div className="w-10 h-10 rounded-full bg-fitPurple-100 dark:bg-fitPurple-900/30 flex items-center justify-center mr-3 text-fitPurple-600 dark:text-fitPurple-300">
-                    {session.is_completed ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+                  <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mr-3 text-amber-600 dark:text-amber-300">
+                    <AlertCircle className="h-5 w-5" />
                   </div>
                   <div>
                     <div className="flex items-center">
@@ -87,44 +80,37 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
                     <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
                       <span className="flex items-center">
                         <Clock className="h-3 w-3 mr-1" />
-                        {formatTime(session.duration)}
+                        {formatTime(session.total_time)}
                       </span>
                       <span className="flex items-center">
                         <Calendar className="h-3 w-3 mr-1" />
                         {formatDate(session.workout_date || session.created_at)}
                       </span>
                       <span>
-                        ~{session.calories || calculateCalories(session.duration, session.intensity)} cal
+                        ~{session.calories || Math.round((session.total_time || 0) * 2)} cal
                       </span>
                     </div>
                   </div>
                 </div>
-                <div>
-                  <Button 
-                    size="sm" 
-                    onClick={() => onResumeSession(session)}
-                    className={cn(
-                      "bg-fitPurple-600 hover:bg-fitPurple-700",
-                      !session.is_completed && "flex items-center gap-1"
-                    )}
-                  >
-                    <Play className="h-3 w-3 mr-1" /> {!session.is_completed ? "Resume" : "Start Again"}
-                  </Button>
-                </div>
+                <Button 
+                  size="sm"
+                  onClick={() => onResumeSession(session)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1"
+                >
+                  <Play className="h-3 w-3" /> Resume
+                </Button>
               </div>
               
-              {!session.is_completed && (
-                <div className="mt-3">
-                  <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
-                    <div 
-                      className="h-full bg-fitPurple-600 dark:bg-fitPurple-400" 
-                      style={{ 
-                        width: `${Math.min(100, Math.max(5, ((session.current_exercise_index || 0) / 5) * 100))}%` 
-                      }}
-                    ></div>
-                  </div>
+              <div className="mt-3">
+                <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+                  <div 
+                    className="h-full bg-amber-600" 
+                    style={{ 
+                      width: `${Math.min(100, Math.max(5, ((session.current_exercise_index || 0) / 5) * 100))}%` 
+                    }}
+                  ></div>
                 </div>
-              )}
+              </div>
             </div>
           ))}
         </div>

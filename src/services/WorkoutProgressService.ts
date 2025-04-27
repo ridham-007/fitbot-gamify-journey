@@ -81,6 +81,7 @@ export const WorkoutProgressService = {
         .from('user_workout_progress')
         .select('*')
         .eq('user_id', userId)
+        .eq('is_completed', false)  // Only get incomplete sessions
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -98,7 +99,7 @@ export const WorkoutProgressService = {
         timer: 0,
         is_resting: item.is_resting || false,
         total_time: item.duration || 0,
-        completed_exercises: 0,
+        completed_exercises: item.exercise_state ? JSON.parse(item.exercise_state).filter((ex: WorkoutExercise) => ex.completed).length : 0,
         created_at: item.created_at,
         duration: item.duration,
         calories: item.calories,
@@ -137,6 +138,15 @@ export const WorkoutProgressService = {
       }
       
       const dbData = data as DatabaseWorkoutProgress;
+      let exercises: WorkoutExercise[] = [];
+      
+      try {
+        if (dbData.exercise_state) {
+          exercises = JSON.parse(dbData.exercise_state);
+        }
+      } catch (e) {
+        console.error('Error parsing exercise state:', e);
+      }
       
       return {
         id: dbData.id,
@@ -146,7 +156,7 @@ export const WorkoutProgressService = {
         timer: 0,
         is_resting: dbData.is_resting || false,
         total_time: dbData.duration || 0,
-        completed_exercises: 0,
+        completed_exercises: exercises.filter(ex => ex.completed).length,
         created_at: dbData.created_at,
         duration: dbData.duration,
         calories: dbData.calories,

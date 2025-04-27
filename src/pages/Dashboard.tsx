@@ -411,8 +411,10 @@ const Dashboard = () => {
     
     toast({
       title: "Workout Resumed",
-      description: `Resuming ${session.workout_type} workout!`,
+      description: `Resuming ${session.workout_type} workout from where you left off!`,
     });
+
+    navigate('/dashboard');
   };
 
   const formatTime = (seconds) => {
