@@ -117,6 +117,42 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_video_recommendations: {
+        Row: {
+          chat_session_id: string
+          created_at: string | null
+          id: string
+          video_id: string | null
+        }
+        Insert: {
+          chat_session_id: string
+          created_at?: string | null
+          id?: string
+          video_id?: string | null
+        }
+        Update: {
+          chat_session_id?: string
+          created_at?: string | null
+          id?: string
+          video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_video_recommendations_chat_session_id_fkey"
+            columns: ["chat_session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trainer_chats"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "chat_video_recommendations_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercise_demonstrations: {
         Row: {
           animation_url: string
@@ -154,6 +190,7 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          created_by: string | null
           description: string
           difficulty: string
           id: string
@@ -165,6 +202,7 @@ export type Database = {
         Insert: {
           category: string
           created_at?: string
+          created_by?: string | null
           description: string
           difficulty: string
           id?: string
@@ -176,6 +214,7 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
+          created_by?: string | null
           description?: string
           difficulty?: string
           id?: string

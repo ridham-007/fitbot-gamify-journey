@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -151,22 +152,27 @@ const Trainer = () => {
 
   const loadPreviousSession = async (sessionId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('ai_trainer_chats')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: true });
+      const [chatsResponse, videosResponse] = await Promise.all([
+        supabase
+          .from('ai_trainer_chats')
+          .select('*')
+          .eq('session_id', sessionId)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('chat_video_recommendations')
+          .select('*, exercise_videos(*)')
+          .eq('chat_session_id', sessionId)
+      ]);
 
-      if (error) throw error;
+      if (chatsResponse.error) throw chatsResponse.error;
+      if (videosResponse.error) throw videosResponse.error;
 
-      if (data && data.length > 0) {
-        // Extract category from the first message, with type safety
-        const sessionCategory = data[0].category as Category | null;
+      if (chatsResponse.data && chatsResponse.data.length > 0) {
+        const sessionCategory = chatsResponse.data[0].category as Category | null;
         setCurrentCategory(sessionCategory);
         setSessionId(sessionId);
 
-        // Convert data to messages format with explicit typing
-        const sessionMessages: Message[] = data.map(msg => ({
+        const sessionMessages: Message[] = chatsResponse.data.map(msg => ({
           id: msg.id,
           type: msg.is_user ? 'user' : 'ai',
           content: msg.message,
@@ -176,7 +182,11 @@ const Trainer = () => {
 
         setMessages(sessionMessages);
         
-        // Close sidebar after loading
+        // Update exercise videos if any were recommended
+        if (videosResponse.data && videosResponse.data.length > 0) {
+          setExerciseVideos(videosResponse.data.map(rec => rec.exercise_videos));
+        }
+        
         setShowSidebar(false);
       }
     } catch (error) {
