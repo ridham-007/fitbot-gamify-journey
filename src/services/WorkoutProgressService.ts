@@ -18,7 +18,7 @@ export interface WorkoutSession {
   workout_date?: string;
   exercise_state?: string;
   is_completed?: boolean;
-  completed_at?: string;
+  completed_at?: string;  // Added this to fix the previous build error
 }
 
 export const WorkoutProgressService = {
@@ -38,8 +38,6 @@ export const WorkoutProgressService = {
           current_exercise_index: progressData.current_exercise_index || 0,
           is_resting: progressData.is_resting || false,
           created_at: new Date().toISOString(),
-          exercise_state: progressData.exercise_state,
-          is_completed: progressData.is_completed || false
         })
         .select();
 
@@ -164,3 +162,4 @@ export const WorkoutProgressService = {
 };
 
 export default WorkoutProgressService;
+

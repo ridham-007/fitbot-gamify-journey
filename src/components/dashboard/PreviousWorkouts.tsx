@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,7 @@ interface PreviousWorkoutsProps {
 }
 
 const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) => {
-  if (!sessions || sessions.length === 0) {
+  if (sessions.length === 0) {
     return (
       <Card>
         <CardHeader>
