@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
@@ -119,17 +120,28 @@ User message: ${message}
 
     const reply = data.choices[0].message.content;
     
+    // Analyze the reply content for potential video categories
     const keywords = ['cardio', 'strength', 'hiit', 'yoga', 'stretching']
       .filter(keyword => reply.toLowerCase().includes(keyword));
+    
+    console.log("Detected keywords for video recommendations:", keywords);
 
-    const { data: videos } = await supabaseClient
+    // Get relevant videos based on extracted keywords
+    const { data: videos, error: videoError } = await supabaseClient
       .from('exercise_videos')
       .select('*')
       .in('category', keywords.length ? keywords : ['HIIT', 'Strength', 'Yoga'])
       .limit(3);
+      
+    if (videoError) {
+      console.error("Error fetching videos:", videoError);
+    } else {
+      console.log(`Found ${videos?.length || 0} video recommendations`);
+    }
 
-    if (videos && videos.length > 0) {
-      await supabaseClient
+    // Save video recommendations to the chat_video_recommendations table
+    if (videos && videos.length > 0 && sessionId) {
+      const { error: recommendationError } = await supabaseClient
         .from('chat_video_recommendations')
         .insert(
           videos.map(video => ({
@@ -137,16 +149,28 @@ User message: ${message}
             video_id: video.id
           }))
         );
+        
+      if (recommendationError) {
+        console.error("Error saving video recommendations:", recommendationError);
+      } else {
+        console.log(`Saved ${videos.length} video recommendations for session ${sessionId}`);
+      }
     }
 
-    await supabaseClient
+    // Save chat messages
+    const { error: chatError } = await supabaseClient
       .from('ai_trainer_chats')
       .insert([
         { user_id: userId, message, is_user: true, category, session_id: sessionId },
         { user_id: userId, message: reply, is_user: false, category, session_id: sessionId }
       ]);
+      
+    if (chatError) {
+      console.error("Error saving chat messages:", chatError);
+    }
     
-    const { data: previousSessions } = await supabaseClient
+    // Get previous session IDs for this user
+    const { data: previousSessions, error: sessionsError } = await supabaseClient
       .from('ai_trainer_chats')
       .select('session_id, created_at')
       .eq('user_id', userId)
@@ -154,6 +178,10 @@ User message: ${message}
       .order('created_at', { ascending: false })
       .limit(10);
       
+    if (sessionsError) {
+      console.error("Error fetching previous sessions:", sessionsError);
+    }
+    
     const uniqueSessions = previousSessions ? 
       [...new Map(previousSessions.map(item => [item.session_id, item])).values()]
       : [];

@@ -19,9 +19,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import ChatMessage from '@/components/trainer/ChatMessage';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Database } from '@/integrations/supabase/types';
 
-// Single definition of Session type to match the database structure
+// Define Session type to match the database structure
 type Session = {
   session_id: string;
   created_at: string;
@@ -44,6 +43,18 @@ type CategoryInfo = {
   description: string;
   icon: React.ReactNode;
   color: string;
+};
+
+// Video type definition
+type Video = {
+  id: string;
+  name: string;
+  description: string;
+  video_url: string;
+  category: string;
+  difficulty: string;
+  muscle_group: string;
+  thumbnail_url?: string;
 };
 
 const categories: Record<Category, CategoryInfo> = {
@@ -86,7 +97,7 @@ const Trainer = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [exerciseVideos, setExerciseVideos] = useState<Database['public']['Tables']['exercise_videos']['Row'][]>([]);
+  const [exerciseVideos, setExerciseVideos] = useState<Video[]>([]);
   const [showSidebar, setShowSidebar] = useState(false);
   const [sidebarContent, setSidebarContent] = useState<'history' | 'videos'>('videos');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -121,7 +132,7 @@ const Trainer = () => {
     };
     
     checkAuth();
-  }, [navigate]);
+  }, [navigate, messages.length]);
 
   const fetchPreviousSessions = async (userId: string) => {
     try {
@@ -135,7 +146,7 @@ const Trainer = () => {
       if (error) throw error;
 
       if (data) {
-        // Create a unique list of sessions, explicitly casting to Session type
+        // Create a unique list of sessions
         const uniqueSessions = [...new Map(data.map(item => 
           [item.session_id, { 
             session_id: item.session_id, 
@@ -150,29 +161,51 @@ const Trainer = () => {
     }
   };
 
+  const fetchVideoRecommendations = async (sessionId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('chat_video_recommendations')
+        .select(`
+          video_id,
+          exercise_videos (
+            id, name, description, video_url, category, difficulty, muscle_group, thumbnail_url
+          )
+        `)
+        .eq('chat_session_id', sessionId);
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        const videos = data
+          .map(item => item.exercise_videos)
+          .filter(Boolean) as Video[];
+          
+        console.log("Retrieved video recommendations:", videos);
+        setExerciseVideos(videos);
+      } else {
+        console.log("No video recommendations found for session:", sessionId);
+      }
+    } catch (error) {
+      console.error("Error fetching video recommendations:", error);
+    }
+  };
+
   const loadPreviousSession = async (sessionId: string) => {
     try {
-      const [chatsResponse, videosResponse] = await Promise.all([
-        supabase
-          .from('ai_trainer_chats')
-          .select('*')
-          .eq('session_id', sessionId)
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('chat_video_recommendations')
-          .select('*, exercise_videos(*)')
-          .eq('chat_session_id', sessionId)
-      ]);
+      const { data: chatsData, error: chatsError } = await supabase
+        .from('ai_trainer_chats')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
 
-      if (chatsResponse.error) throw chatsResponse.error;
-      if (videosResponse.error) throw videosResponse.error;
+      if (chatsError) throw chatsError;
 
-      if (chatsResponse.data && chatsResponse.data.length > 0) {
-        const sessionCategory = chatsResponse.data[0].category as Category | null;
+      if (chatsData && chatsData.length > 0) {
+        const sessionCategory = chatsData[0].category as Category | null;
         setCurrentCategory(sessionCategory);
         setSessionId(sessionId);
 
-        const sessionMessages: Message[] = chatsResponse.data.map(msg => ({
+        const sessionMessages: Message[] = chatsData.map(msg => ({
           id: msg.id,
           type: msg.is_user ? 'user' : 'ai',
           content: msg.message,
@@ -182,10 +215,8 @@ const Trainer = () => {
 
         setMessages(sessionMessages);
         
-        // Update exercise videos if any were recommended
-        if (videosResponse.data && videosResponse.data.length > 0) {
-          setExerciseVideos(videosResponse.data.map(rec => rec.exercise_videos));
-        }
+        // Fetch associated video recommendations for this session
+        await fetchVideoRecommendations(sessionId);
         
         setShowSidebar(false);
       }
@@ -257,7 +288,8 @@ const Trainer = () => {
       
       simulateTyping(aiMessage, () => {
         setIsLoading(false);
-        if (data.suggestedVideos) {
+        if (data.suggestedVideos && data.suggestedVideos.length > 0) {
+          console.log("Setting exercise videos:", data.suggestedVideos);
           setExerciseVideos(data.suggestedVideos);
         }
         if (data.previousSessions) {
@@ -360,6 +392,7 @@ const Trainer = () => {
     }]);
     setCurrentCategory(null);
     setSessionId(null);
+    setExerciseVideos([]);
   };
 
   return (
@@ -572,7 +605,7 @@ const Trainer = () => {
                     {sidebarContent === 'videos' ? (
                       <div className="space-y-4">
                         {exerciseVideos.length > 0 ? (
-                          exerciseVideos.map((video: any) => (
+                          exerciseVideos.map((video) => (
                             <ExerciseVideo
                               key={video.id}
                               name={video.name}
