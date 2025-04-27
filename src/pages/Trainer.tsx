@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,6 @@ import { cn } from '@/lib/utils';
 import ChatMessage from '@/components/trainer/ChatMessage';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-// Define Session type to match the database structure
 type Session = {
   session_id: string;
   created_at: string;
@@ -45,7 +43,6 @@ type CategoryInfo = {
   color: string;
 };
 
-// Video type definition
 type Video = {
   id: string;
   name: string;
@@ -127,7 +124,6 @@ const Trainer = () => {
         }]);
       }
 
-      // Fetch previous sessions
       fetchPreviousSessions(session.user.id);
     };
     
@@ -146,7 +142,6 @@ const Trainer = () => {
       if (error) throw error;
 
       if (data) {
-        // Create a unique list of sessions
         const uniqueSessions = [...new Map(data.map(item => 
           [item.session_id, { 
             session_id: item.session_id, 
@@ -215,7 +210,6 @@ const Trainer = () => {
 
         setMessages(sessionMessages);
         
-        // Fetch associated video recommendations for this session
         await fetchVideoRecommendations(sessionId);
         
         setShowSidebar(false);
@@ -465,14 +459,13 @@ const Trainer = () => {
         </div>
         
         <div className="flex-grow bg-gray-50 dark:bg-fitDark-900 overflow-hidden flex">
-          {/* Main Chat Area - Always visible and takes full width when sidebar is closed */}
           <div className={cn(
             "transition-all duration-300 ease-in-out",
-            showSidebar ? "w-2/3" : "w-full"
+            showSidebar ? "w-3/4" : "w-full"
           )}>
             <div className="h-full flex flex-col">
               <ScrollArea className="flex-grow px-4 py-6">
-                <div className="max-w-3xl mx-auto space-y-6">
+                <div className="max-w-4xl mx-auto space-y-6">
                   {!currentCategory && (
                     <div>
                       <h2 className="text-xl font-bold mb-4 text-center">Choose a Fitness Category</h2>
@@ -567,11 +560,10 @@ const Trainer = () => {
             </div>
           </div>
 
-          {/* Sidebar - Conditionally rendered */}
           <div 
             className={cn(
               "bg-white dark:bg-fitDark-800 border-l border-gray-200 dark:border-fitDark-700 transition-all duration-300 ease-in-out overflow-hidden",
-              showSidebar ? "w-1/3" : "w-0"
+              showSidebar ? "w-1/4" : "w-0"
             )}
           >
             {showSidebar && (
@@ -628,7 +620,7 @@ const Trainer = () => {
                           variant="outline"
                           size="sm"
                           onClick={startNewChat}
-                          className="w-full flex items-center justify-start"
+                          className="w-full flex items-center justify-start hover:bg-fitPurple-50 dark:hover:bg-fitPurple-900/10"
                         >
                           <Plus className="h-4 w-4 mr-2" />
                           Start New Conversation
@@ -641,15 +633,27 @@ const Trainer = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() => loadPreviousSession(session.session_id)}
-                              className="w-full flex items-center justify-start border-b border-gray-100 dark:border-fitDark-700 pb-2 text-left"
+                              className="w-full group flex flex-col items-start justify-start p-3 hover:bg-fitPurple-50 dark:hover:bg-fitPurple-900/10 rounded-lg transition-all"
                             >
-                              <MessageSquare className="h-4 w-4 mr-2 flex-shrink-0" />
-                              <div className="truncate flex-grow">
-                                <span className="block truncate">
-                                  Conversation from {new Date(session.created_at).toLocaleDateString()}
+                              <div className="flex items-center w-full mb-1">
+                                <MessageSquare className="h-4 w-4 mr-2 text-fitPurple-500" />
+                                <span className="text-sm font-medium">
+                                  {new Date(session.created_at).toLocaleDateString(undefined, { 
+                                    month: 'short', 
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
                                 </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(session.created_at).toLocaleTimeString()}
+                              </div>
+                              <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
+                                <span>
+                                  {new Date(session.created_at).toLocaleTimeString(undefined, {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                                <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                  View Chat →
                                 </span>
                               </div>
                             </Button>
