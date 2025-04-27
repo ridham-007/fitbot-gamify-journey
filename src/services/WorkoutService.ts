@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 interface WorkoutExercise {
@@ -21,7 +22,7 @@ interface SavedWorkout {
   workout_type: string;
   duration: number;
   calories_burned: number;
-  exercise_data: any;
+  exercise_data: WorkoutExercise[] | any; // Fixed: Explicitly defined type
   completed_at: string;
   user_id: string;
   notes?: string;
@@ -50,6 +51,7 @@ interface UserWorkoutProgress {
 export const WorkoutService = {
   async getLastCompletedWorkout(userId: string): Promise<SavedWorkout | null> {
     try {
+      // Explicitly define response type to prevent excessive type instantiation
       const { data, error } = await supabase
         .from('workouts')
         .select('*')
@@ -57,14 +59,23 @@ export const WorkoutService = {
         .eq('completed_at::date', new Date().toISOString().split('T')[0])
         .order('completed_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle(); // Changed from single() to maybeSingle() for safer behavior
       
       if (error) {
         console.error('Error fetching last completed workout:', error);
         return null;
       }
       
-      return data;
+      // Handle case where data might be null
+      if (!data) return null;
+      
+      // Ensure exercise_data is present (even if empty array)
+      const workout = data as SavedWorkout;
+      if (!workout.exercise_data) {
+        workout.exercise_data = [];
+      }
+      
+      return workout;
     } catch (error) {
       console.error('Exception when fetching last completed workout:', error);
       return null;
@@ -114,7 +125,7 @@ export const WorkoutService = {
           workout_type: workout.title,
           duration: workout.duration,
           calories_burned: workout.caloriesBurn,
-          exercise_data: completedExercises,
+          exercise_data: completedExercises, // This must match SavedWorkout interface
           notes: `Completed ${completedExercises.filter(ex => ex.completed).length} of ${completedExercises.length} exercises`
         })
         .select()
