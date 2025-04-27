@@ -109,7 +109,9 @@ export const WorkoutService = {
         return { success: false, error, data: [] };
       }
       
-      return { success: true, data: data || [] };
+      // Ensure we return data conforming to SavedWorkout interface
+      const typedData = data as SavedWorkout[];
+      return { success: true, data: typedData || [] };
     } catch (error) {
       console.error('Exception when fetching recent workouts:', error);
       return { success: false, error, data: [] };
@@ -199,14 +201,16 @@ export const WorkoutService = {
       
       // Parse the notes field to get the saved workout state
       try {
-        const workoutState = JSON.parse(data.notes || '{}');
+        // Make sure the notes field is properly typed when used
+        const workoutState = data.notes ? JSON.parse(data.notes as string) : {};
+        
         return {
           success: true,
           data: {
             workout: {
               title: data.workout_type,
               duration: data.duration,
-              difficulty: data.intensity,
+              difficulty: data.intensity || 'Intermediate',
               caloriesBurn: data.calories || 0
             },
             currentProgress: {
