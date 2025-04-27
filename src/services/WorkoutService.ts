@@ -36,6 +36,22 @@ export interface WorkoutProgress {
   currentTime: number;
 }
 
+interface DatabaseWorkoutProgress {
+  id: string;
+  user_id: string;
+  workout_type: string;
+  current_exercise_index?: number;
+  duration?: number;
+  calories?: number;
+  intensity?: string;
+  workout_date?: string;
+  created_at: string;
+  is_resting?: boolean;
+  exercise_state?: string;
+  is_completed?: boolean;
+  completed_at?: string;
+}
+
 export const WorkoutService = {
   async getLastCompletedWorkout(userId: string): Promise<SavedWorkout | null> {
     if (!userId) return null;
@@ -216,7 +232,7 @@ export const WorkoutService = {
         .eq('workout_date', new Date().toISOString().split('T')[0])
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .maybeSingle() as { data: DatabaseWorkoutProgress | null };
       
       if (!progressData) {
         return { success: false, error: 'No workout in progress' };
