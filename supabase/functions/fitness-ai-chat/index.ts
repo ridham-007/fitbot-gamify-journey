@@ -14,24 +14,28 @@ const categoryQuestions = {
     "How many days per week can you commit to exercise?",
     "Do you have any dietary restrictions?",
     "What's your preferred type of exercise (cardio, strength training, etc.)?",
+    "Do you have any health conditions I should know about?"
   ],
   'muscle-gain': [
     "What's your current fitness level?",
     "Do you have access to a gym?",
     "Any specific muscle groups you want to focus on?",
     "How much time can you dedicate to workouts?",
+    "What supplements, if any, are you currently taking?"
   ],
   'general-fitness': [
     "What are your main fitness goals?",
     "Do you have any health conditions to consider?",
     "What's your current activity level?",
     "What type of exercises do you enjoy?",
+    "How much time can you commit to fitness weekly?"
   ],
   'flexibility': [
     "Have you done yoga or stretching before?",
     "Any areas of tightness or limited mobility?",
     "How much time can you dedicate to flexibility training?",
     "Do you have any injuries to consider?",
+    "What's your current stretching routine, if any?"
   ]
 };
 
@@ -41,7 +45,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, userId, category, isNewSession } = await req.json();
+    const { message, userId, category, isNewSession, sessionId } = await req.json();
     
     // Generate appropriate questions if it's a new session
     let initialContext = '';
@@ -90,7 +94,7 @@ User message: ${message}
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           { 
             role: 'system', 
@@ -135,14 +139,29 @@ User message: ${message}
     await supabaseClient
       .from('ai_trainer_chats')
       .insert([
-        { user_id: userId, message, is_user: true, category },
-        { user_id: userId, message: reply, is_user: false, category }
+        { user_id: userId, message, is_user: true, category, session_id: sessionId },
+        { user_id: userId, message: reply, is_user: false, category, session_id: sessionId }
       ]);
+    
+    // Get previous sessions for this user
+    const { data: previousSessions } = await supabaseClient
+      .from('ai_trainer_chats')
+      .select('session_id, created_at')
+      .eq('user_id', userId)
+      .eq('is_user', true)
+      .order('created_at', { ascending: false })
+      .limit(10);
+      
+    // Create a unique list of sessions
+    const uniqueSessions = previousSessions ? 
+      [...new Map(previousSessions.map(item => [item.session_id, item])).values()]
+      : [];
     
     return new Response(
       JSON.stringify({ 
         reply,
         suggestedVideos: videos || [],
+        previousSessions: uniqueSessions || []
       }),
       { 
         headers: { 
@@ -158,7 +177,8 @@ User message: ${message}
       JSON.stringify({ 
         error: error.message,
         reply: "I'm having trouble connecting right now. Can you try again in a moment? 🏋️‍♂️",
-        suggestedVideos: []
+        suggestedVideos: [],
+        previousSessions: []
       }),
       { 
         status: 500,
