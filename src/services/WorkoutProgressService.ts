@@ -1,16 +1,18 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { WorkoutExercise } from './WorkoutService';
 
 export interface WorkoutSession {
   id: string;
   user_id: string;
   workout_type: string;
-  current_exercise_index?: number;
-  timer?: number;
-  is_resting?: boolean;
-  total_time?: number;
-  completed_exercises?: number;
+  current_exercise_index: number;
+  timer: number;
+  is_resting: boolean;
+  total_time: number;
+  completed_exercises: number;
   created_at: string;
+  // Add fields that exist in the database
   duration?: number;
   calories?: number;
   intensity?: string;
@@ -18,7 +20,6 @@ export interface WorkoutSession {
   workout_date?: string;
   exercise_state?: string;
   is_completed?: boolean;
-  completed_at?: string;  // Added this to fix the previous build error
 }
 
 export const WorkoutProgressService = {
@@ -32,7 +33,7 @@ export const WorkoutProgressService = {
           user_id: userId,
           workout_type: progressData.workout_type,
           duration: progressData.total_time,
-          calories: progressData.calories || Math.round((progressData.total_time || 0) * 2),
+          calories: progressData.calories || Math.round((progressData.total_time || 0) * 2), // Estimate calories if not provided
           intensity: progressData.intensity || 'medium',
           workout_date: new Date().toISOString().split('T')[0],
           current_exercise_index: progressData.current_exercise_index || 0,
@@ -162,4 +163,3 @@ export const WorkoutProgressService = {
 };
 
 export default WorkoutProgressService;
-

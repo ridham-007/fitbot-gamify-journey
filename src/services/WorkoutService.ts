@@ -1,5 +1,5 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import { WorkoutSession } from './WorkoutProgressService';
 
 export interface WorkoutExercise {
   name: string;
@@ -54,6 +54,7 @@ export const WorkoutService = {
       
       if (error || !data) return null;
       
+      // Fix: Ensure we handle missing exercise_data safely
       return {
         ...data,
         exercise_data: [] // Initialize with empty array since it doesn't exist in the database
@@ -137,6 +138,7 @@ export const WorkoutService = {
     }
     
     try {
+      // Save to completed workouts
       const { data: workoutData, error: workoutError } = await supabase
         .from('workouts')
         .insert({
@@ -154,16 +156,17 @@ export const WorkoutService = {
         return { success: false, error: workoutError };
       }
       
+      // Also save final progress to user_workout_progress for consistency
       await supabase
         .from('user_workout_progress')
         .insert({
           user_id: userId,
           workout_type: workout.title,
-          duration: workout.duration * 60,
+          duration: workout.duration * 60, // Convert to seconds
           calories: workout.caloriesBurn,
           intensity: workout.difficulty,
           workout_date: new Date().toISOString().split('T')[0],
-          satisfaction_rating: 5,
+          satisfaction_rating: 5, // Default high rating for completed workouts
           is_completed: true
         });
       
@@ -191,9 +194,10 @@ export const WorkoutService = {
         return { success: false, error, data: [] };
       }
       
+      // Fix: Map the data to include exercise_data as an empty array since it doesn't exist in DB
       const typedData = data.map(workout => ({
         ...workout,
-        exercise_data: [] // Initialize with empty array since it doesn't exist in DB
+        exercise_data: [] // Initialize with empty array since it doesn't exist in the database
       })) as SavedWorkout[];
       
       return { success: true, data: typedData || [] };
@@ -222,6 +226,7 @@ export const WorkoutService = {
         return { success: false, error: 'No workout in progress' };
       }
       
+      // Try to parse saved exercise state if available
       let exercises = [
         { name: "Jumping Jacks", duration: 45, rest: 15, completed: false },
         { name: "Push-ups", duration: 45, rest: 15, completed: false },
@@ -238,10 +243,11 @@ export const WorkoutService = {
         }
       }
       
+      // Find default workout with same title or use defaultWorkout
       const workout = {
         title: progressData.workout_type,
         description: `Resumed ${progressData.workout_type} workout`,
-        duration: Math.ceil((progressData.duration || 0) / 60),
+        duration: Math.ceil((progressData.duration || 0) / 60), // Convert seconds to minutes
         difficulty: progressData.intensity || 'Intermediate',
         caloriesBurn: progressData.calories || 300,
         exercises: exercises

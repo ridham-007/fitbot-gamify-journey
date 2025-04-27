@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
     );
   }
 
+  // Format time display
   const formatTime = (seconds: number | undefined) => {
     if (!seconds) return "0:00";
     const mins = Math.floor(seconds / 60);
@@ -31,6 +33,7 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Format date for better display
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return "Unknown";
     const date = new Date(dateString);
@@ -42,6 +45,7 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
     });
   };
 
+  // Calculate calorie burn rate based on duration
   const calculateCalories = (duration: number | undefined, intensity: string | undefined) => {
     if (!duration) return 0;
     const baseRate = intensity === 'high' ? 10 : intensity === 'medium' ? 8 : 6;
