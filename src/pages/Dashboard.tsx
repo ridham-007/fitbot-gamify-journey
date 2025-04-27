@@ -200,29 +200,7 @@ const Dashboard = () => {
     queryFn: async () => {
       if (!isWorkoutStarted) return null;
       
-      const { data, error } = await supabase
-        .from('exercise_demonstrations')
-        .select('*')
-        .eq('exercise_name', mockWorkout.exercises[currentExerciseIndex].name)
-        .maybeSingle();
-        
-      if (error || !data) {
-        console.error('Error fetching exercise demo:', error);
-        return {
-          exercise_name: mockWorkout.exercises[currentExerciseIndex].name,
-          description: "Focus on proper form and controlled movements.",
-          animation_url: "https://placehold.co/600x400?text=Exercise+Demo",
-          muscle_group: "Full Body",
-          difficulty_level: mockWorkout.difficulty,
-          form_tips: [
-            "Maintain proper posture throughout the exercise",
-            "Keep movements controlled and deliberate",
-            "Focus on your breathing pattern"
-          ]
-        };
-      }
-      
-      return data;
+      return WorkoutProgressService.getExerciseDemo(mockWorkout.exercises[currentExerciseIndex].name);
     },
     enabled: isWorkoutStarted && currentExerciseIndex >= 0 && mockWorkout.exercises.length > 0
   });
@@ -399,12 +377,34 @@ const Dashboard = () => {
   };
 
   const handleResumeSession = (session: WorkoutSession) => {
-    const savedWorkout = { ...defaultWorkout, title: session.workout_type };
+    let exercises = [
+      { name: "Jumping Jacks", duration: 45, rest: 15, completed: false },
+      { name: "Push-ups", duration: 45, rest: 15, completed: false },
+      { name: "Mountain Climbers", duration: 45, rest: 15, completed: false },
+      { name: "Squats", duration: 45, rest: 15, completed: false },
+      { name: "Plank", duration: 45, rest: 15, completed: false },
+    ];
+    
+    if (session.exercise_state) {
+      try {
+        exercises = JSON.parse(session.exercise_state);
+      } catch (e) {
+        console.error('Failed to parse exercise state:', e);
+      }
+    }
+    
+    const savedWorkout = {
+      ...defaultWorkout, 
+      title: session.workout_type,
+      exercises: exercises,
+      difficulty: session.intensity || defaultWorkout.difficulty,
+      caloriesBurn: session.calories || defaultWorkout.caloriesBurn
+    };
     
     setMockWorkout(savedWorkout);
-    setCurrentExerciseIndex(0);
+    setCurrentExerciseIndex(session.current_exercise_index || 0);
     setTimer(0);
-    setIsResting(false);
+    setIsResting(session.is_resting || false);
     setIsWorkoutStarted(true);
     setIsPaused(false);
     setTotalWorkoutTime(session.duration || 0);
@@ -566,13 +566,19 @@ const Dashboard = () => {
                   </div>
 
                   {isWorkoutStarted && (
-                    <SimpleWorkoutProgress
+                    <WorkoutProgress
                       currentExercise={currentExerciseIndex + 1}
                       totalExercises={mockWorkout.exercises.length}
                       exerciseName={mockWorkout.exercises[currentExerciseIndex].name}
-                      timeElapsed={totalWorkoutTime}
-                      totalTime={mockWorkout.duration * 60}
+                      timeRemaining={isResting ? 
+                        mockWorkout.exercises[currentExerciseIndex].rest - timer : 
+                        mockWorkout.exercises[currentExerciseIndex].duration - timer}
+                      totalTime={isResting ? 
+                        mockWorkout.exercises[currentExerciseIndex].rest : 
+                        mockWorkout.exercises[currentExerciseIndex].duration}
                       isPaused={isPaused}
+                      exerciseDescription={currentExerciseDemo?.description}
+                      videoUrl={currentExerciseDemo?.animation_url}
                     />
                   )}
 

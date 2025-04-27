@@ -65,7 +65,7 @@ export const WorkoutService = {
     }
   },
 
-  async saveWorkoutProgress(userId: string, workout: WorkoutData, progress: number): Promise<{ success: boolean; error?: any; data?: any }> {
+  async saveWorkoutProgress(userId: string, workout: WorkoutData, progress: number, currentExerciseIndex: number = 0, isResting: boolean = false): Promise<{ success: boolean; error?: any; data?: any }> {
     if (!userId) {
       return { success: false, error: 'No user ID provided' };
     }
@@ -79,7 +79,9 @@ export const WorkoutService = {
           duration: progress,
           calories: Math.round((progress / workout.duration) * workout.caloriesBurn),
           intensity: workout.difficulty,
-          workout_date: new Date().toISOString().split('T')[0]
+          workout_date: new Date().toISOString().split('T')[0],
+          current_exercise_index: currentExerciseIndex,
+          is_resting: isResting
         })
         .select()
         .single();
@@ -110,7 +112,10 @@ export const WorkoutService = {
           duration: currentProgress.totalTime || 0,
           calories: Math.round((currentProgress.totalTime / workout.duration) * workout.caloriesBurn),
           intensity: workout.difficulty,
-          workout_date: new Date().toISOString().split('T')[0]
+          workout_date: new Date().toISOString().split('T')[0],
+          current_exercise_index: currentProgress.currentExerciseIndex,
+          is_resting: currentProgress.isResting,
+          exercise_state: JSON.stringify(workout.exercises)
         })
         .select()
         .single();
@@ -161,7 +166,8 @@ export const WorkoutService = {
           calories: workout.caloriesBurn,
           intensity: workout.difficulty,
           workout_date: new Date().toISOString().split('T')[0],
-          satisfaction_rating: 5 // Default high rating for completed workouts
+          satisfaction_rating: 5, // Default high rating for completed workouts
+          is_completed: true
         });
       
       return { success: true, data: workoutData };
@@ -220,6 +226,23 @@ export const WorkoutService = {
         return { success: false, error: 'No workout in progress' };
       }
       
+      // Try to parse saved exercise state if available
+      let exercises = [
+        { name: "Jumping Jacks", duration: 45, rest: 15, completed: false },
+        { name: "Push-ups", duration: 45, rest: 15, completed: false },
+        { name: "Mountain Climbers", duration: 45, rest: 15, completed: false },
+        { name: "Squats", duration: 45, rest: 15, completed: false },
+        { name: "Plank", duration: 45, rest: 15, completed: false },
+      ];
+      
+      if (progressData.exercise_state) {
+        try {
+          exercises = JSON.parse(progressData.exercise_state);
+        } catch (e) {
+          console.error('Failed to parse exercise state:', e);
+        }
+      }
+      
       // Find default workout with same title or use defaultWorkout
       const workout = {
         title: progressData.workout_type,
@@ -227,13 +250,7 @@ export const WorkoutService = {
         duration: Math.ceil((progressData.duration || 0) / 60), // Convert seconds to minutes
         difficulty: progressData.intensity || 'Intermediate',
         caloriesBurn: progressData.calories || 300,
-        exercises: [
-          { name: "Jumping Jacks", duration: 45, rest: 15, completed: false },
-          { name: "Push-ups", duration: 45, rest: 15, completed: false },
-          { name: "Mountain Climbers", duration: 45, rest: 15, completed: false },
-          { name: "Squats", duration: 45, rest: 15, completed: false },
-          { name: "Plank", duration: 45, rest: 15, completed: false },
-        ]
+        exercises: exercises
       };
       
       return {
@@ -241,9 +258,9 @@ export const WorkoutService = {
         data: {
           workout,
           currentProgress: {
-            currentExerciseIndex: 0,
+            currentExerciseIndex: progressData.current_exercise_index || 0,
             timer: 0,
-            isResting: false,
+            isResting: progressData.is_resting || false,
             totalTime: progressData.duration || 0
           }
         }

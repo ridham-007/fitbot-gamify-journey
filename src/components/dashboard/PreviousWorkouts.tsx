@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Play, Calendar } from 'lucide-react';
+import { Clock, Play, Calendar, ArrowRight, CheckCircle } from 'lucide-react';
 import { WorkoutSession } from '@/services/WorkoutProgressService';
 
 interface PreviousWorkoutsProps {
@@ -40,41 +40,64 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: 'numeric'
+      hour: '2-digit',
+      minute: '2-digit'
     });
+  };
+
+  // Calculate calorie burn rate based on duration
+  const calculateCalories = (duration: number | undefined, intensity: string | undefined) => {
+    if (!duration) return 0;
+    const baseRate = intensity === 'high' ? 10 : intensity === 'medium' ? 8 : 6;
+    return Math.round(duration / 60 * baseRate);
   };
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-lg font-bold">Previous Workouts</CardTitle>
+      <CardHeader className="border-b">
+        <CardTitle className="text-lg font-bold flex items-center">
+          Recent Workouts
+          <span className="ml-2 bg-fitPurple-100 text-fitPurple-700 dark:bg-fitPurple-900/30 dark:text-fitPurple-300 text-xs rounded-full px-2 py-0.5">
+            {sessions.length}
+          </span>
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {sessions.map((session) => (
-          <div 
-            key={session.id}
-            className="bg-gray-50 dark:bg-fitDark-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700"
-          >
-            <div className="flex justify-between items-center">
-              <div>
-                <h4 className="font-medium text-fitDark-900 dark:text-white">{session.workout_type}</h4>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-sm flex items-center text-gray-500 dark:text-gray-400">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {formatTime(session.duration)}
-                  </span>
-                  <span className="text-sm flex items-center text-gray-500 dark:text-gray-400">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    {formatDate(session.workout_date || session.created_at)}
-                  </span>
+      <CardContent className="p-0">
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          {sessions.map((session) => (
+            <div 
+              key={session.id}
+              className="p-4 hover:bg-gray-50 dark:hover:bg-fitDark-800 transition-colors"
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 rounded-full bg-fitPurple-100 dark:bg-fitPurple-900/30 flex items-center justify-center mr-3 text-fitPurple-600 dark:text-fitPurple-300">
+                    {session.completed_at ? <CheckCircle className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
+                  </div>
+                  <div>
+                    <div className="flex items-center">
+                      <h4 className="font-medium text-fitDark-900 dark:text-white">{session.workout_type}</h4>
+                      {session.intensity && (
+                        <Badge variant="outline" className="ml-2 capitalize text-xs">
+                          {session.intensity}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="flex items-center">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {formatTime(session.duration)}
+                      </span>
+                      <span className="flex items-center">
+                        <Calendar className="h-3 w-3 mr-1" />
+                        {formatDate(session.workout_date || session.created_at)}
+                      </span>
+                      <span>
+                        ~{calculateCalories(session.duration, session.intensity)} cal
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {session.intensity && (
-                  <Badge variant="outline" className="capitalize">
-                    {session.intensity}
-                  </Badge>
-                )}
                 <Button 
                   size="sm" 
                   onClick={() => onResumeSession(session)}
@@ -83,13 +106,19 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
                   <Play className="h-3 w-3 mr-1" /> Resume
                 </Button>
               </div>
+              
+              <div className="mt-3">
+                <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+                  <div className="h-full bg-fitPurple-600 dark:bg-fitPurple-400" style={{ width: `${Math.min(100, Math.max(5, (session.total_time || 0) / 1800 * 100))}%` }}></div>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </CardContent>
-      <CardFooter className="pt-0">
-        <Button variant="ghost" className="w-full text-sm text-gray-500 dark:text-gray-400">
-          View all workout history
+      <CardFooter className="border-t">
+        <Button variant="ghost" className="w-full text-sm text-gray-500 dark:text-gray-400 gap-1">
+          View workout history <ArrowRight className="h-3 w-3" />
         </Button>
       </CardFooter>
     </Card>

@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Check, Timer, AlertCircle } from 'lucide-react';
+import { Check, Timer, AlertCircle, Video } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,8 @@ interface WorkoutProgressProps {
   timeRemaining: number;
   totalTime: number;
   isPaused?: boolean;
+  exerciseDescription?: string;
+  videoUrl?: string;
 }
 
 const WorkoutProgress = ({
@@ -21,7 +23,9 @@ const WorkoutProgress = ({
   exerciseName,
   timeRemaining,
   totalTime,
-  isPaused = false
+  isPaused = false,
+  exerciseDescription = "",
+  videoUrl = ""
 }: WorkoutProgressProps) => {
   const { toast } = useToast();
 
@@ -85,6 +89,28 @@ const WorkoutProgress = ({
             className="h-1.5"
           />
         </div>
+
+        {videoUrl && (
+          <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+            <h4 className="flex items-center gap-2 mb-2 font-medium">
+              <Video className="h-4 w-4" /> Exercise Video
+            </h4>
+            <div className="aspect-video rounded overflow-hidden">
+              <iframe
+                src={videoUrl}
+                title={`${exerciseName} demo`}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+            {exerciseDescription && (
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                {exerciseDescription}
+              </p>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
