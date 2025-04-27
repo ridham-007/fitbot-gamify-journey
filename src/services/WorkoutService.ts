@@ -53,11 +53,14 @@ export const WorkoutService = {
   async getLastCompletedWorkout(userId: string): Promise<SavedWorkout | null> {
     try {
       // Use a type assertion to avoid deep type instantiation
+      const today = new Date().toISOString().split('T')[0];
+
       const { data, error } = await supabase
         .from('workouts')
         .select('*')
         .eq('user_id', userId)
-        .eq('completed_at::date', new Date().toISOString().split('T')[0])
+        .gte('completed_at', `${today}T00:00:00`)
+        .lt('completed_at', `${today}T23:59:59`)
         .order('completed_at', { ascending: false })
         .limit(1)
         .maybeSingle() as PostgrestSingleResponse<SavedWorkout>;
