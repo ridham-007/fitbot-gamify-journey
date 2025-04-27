@@ -403,15 +403,15 @@ const Dashboard = () => {
     
     setMockWorkout(savedWorkout);
     setCurrentExerciseIndex(session.current_exercise_index || 0);
-    setTimer(0);
+    setTimer(session.timer || 0);
     setIsResting(session.is_resting || false);
     setIsWorkoutStarted(true);
     setIsPaused(false);
-    setTotalWorkoutTime(session.duration || 0);
+    setTotalWorkoutTime(session.total_time || 0);
     
     toast({
       title: "Workout Resumed",
-      description: `Resuming ${session.workout_type} workout from where you left off!`,
+      description: `Resuming ${session.workout_type} workout from ${formatTime(session.timer || 0)}`,
     });
 
     navigate('/dashboard');

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { WorkoutExercise } from './WorkoutService';
 
@@ -17,6 +16,7 @@ export interface DatabaseWorkoutProgress {
   is_resting?: boolean;
   exercise_state?: string;
   is_completed?: boolean;
+  timer_position?: number;
 }
 
 // Represents the workout session used in the UI
@@ -53,7 +53,8 @@ export const WorkoutProgressService = {
           calories: progressData.calories || Math.round((progressData.total_time || 0) * 2),
           intensity: progressData.intensity || 'medium',
           workout_date: new Date().toISOString().split('T')[0],
-          current_exercise_index: progressData.current_exercise_index || 0,
+          current_exercise_index: progressData.current_exercise_index,
+          timer_position: progressData.timer || 0,
           is_resting: progressData.is_resting || false,
           created_at: new Date().toISOString(),
           exercise_state: progressData.exercise_state,
@@ -81,7 +82,7 @@ export const WorkoutProgressService = {
         .from('user_workout_progress')
         .select('*')
         .eq('user_id', userId)
-        .eq('is_completed', false)  // Only get incomplete sessions
+        .eq('is_completed', false)
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -90,13 +91,12 @@ export const WorkoutProgressService = {
         return [];
       }
 
-      // Transform the database data to match WorkoutSession interface
-      const sessions: WorkoutSession[] = (data as DatabaseWorkoutProgress[]).map(item => ({
+      const sessions: WorkoutSession[] = (data || []).map(item => ({
         id: item.id,
         user_id: item.user_id,
         workout_type: item.workout_type,
         current_exercise_index: item.current_exercise_index || 0,
-        timer: 0,
+        timer: item.timer_position || 0,
         is_resting: item.is_resting || false,
         total_time: item.duration || 0,
         completed_exercises: item.exercise_state ? JSON.parse(item.exercise_state).filter((ex: WorkoutExercise) => ex.completed).length : 0,
@@ -104,7 +104,6 @@ export const WorkoutProgressService = {
         duration: item.duration,
         calories: item.calories,
         intensity: item.intensity,
-        satisfaction_rating: item.satisfaction_rating,
         workout_date: item.workout_date,
         exercise_state: item.exercise_state,
         is_completed: item.is_completed
@@ -116,7 +115,7 @@ export const WorkoutProgressService = {
       return [];
     }
   },
-  
+
   async getActiveSession(userId: string): Promise<WorkoutSession | null> {
     if (!userId) return null;
     
@@ -136,57 +135,35 @@ export const WorkoutProgressService = {
         console.error('Error fetching active session:', error);
         return null;
       }
-      
-      const dbData = data as DatabaseWorkoutProgress;
+
       let exercises: WorkoutExercise[] = [];
-      
       try {
-        if (dbData.exercise_state) {
-          exercises = JSON.parse(dbData.exercise_state);
+        if (data.exercise_state) {
+          exercises = JSON.parse(data.exercise_state);
         }
       } catch (e) {
         console.error('Error parsing exercise state:', e);
       }
       
       return {
-        id: dbData.id,
-        user_id: dbData.user_id,
-        workout_type: dbData.workout_type,
-        current_exercise_index: dbData.current_exercise_index || 0,
-        timer: 0,
-        is_resting: dbData.is_resting || false,
-        total_time: dbData.duration || 0,
+        id: data.id,
+        user_id: data.user_id,
+        workout_type: data.workout_type,
+        current_exercise_index: data.current_exercise_index || 0,
+        timer: data.timer_position || 0,
+        is_resting: data.is_resting || false,
+        total_time: data.duration || 0,
         completed_exercises: exercises.filter(ex => ex.completed).length,
-        created_at: dbData.created_at,
-        duration: dbData.duration,
-        calories: dbData.calories,
-        intensity: dbData.intensity,
-        workout_date: dbData.workout_date,
-        exercise_state: dbData.exercise_state,
-        is_completed: dbData.is_completed
+        created_at: data.created_at,
+        duration: data.duration,
+        calories: data.calories,
+        intensity: data.intensity,
+        workout_date: data.workout_date,
+        exercise_state: data.exercise_state,
+        is_completed: data.is_completed
       };
     } catch (error) {
       console.error('Exception when fetching active session:', error);
-      return null;
-    }
-  },
-  
-  async getExerciseDemo(exerciseName: string): Promise<any | null> {
-    try {
-      const { data, error } = await supabase
-        .from('exercise_demonstrations')
-        .select('*')
-        .eq('exercise_name', exerciseName)
-        .maybeSingle();
-        
-      if (error || !data) {
-        console.error('Error fetching exercise demo:', error);
-        return null;
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Exception when fetching exercise demo:', error);
       return null;
     }
   }

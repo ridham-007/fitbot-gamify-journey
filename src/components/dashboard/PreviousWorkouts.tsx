@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Play, Calendar, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { Clock, Play, Calendar, ArrowRight, AlertCircle } from 'lucide-react';
 import { WorkoutSession } from '@/services/WorkoutProgressService';
 import { cn } from '@/lib/utils';
 
@@ -80,7 +80,7 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
                     <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
                       <span className="flex items-center">
                         <Clock className="h-3 w-3 mr-1" />
-                        {formatTime(session.total_time)}
+                        {formatTime(session.timer || 0)} / {formatTime(session.total_time || 0)}
                       </span>
                       <span className="flex items-center">
                         <Calendar className="h-3 w-3 mr-1" />
@@ -97,7 +97,7 @@ const PreviousWorkouts = ({ sessions, onResumeSession }: PreviousWorkoutsProps) 
                   onClick={() => onResumeSession(session)}
                   className="bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1"
                 >
-                  <Play className="h-3 w-3" /> Resume
+                  <Play className="h-3 w-3" /> Resume ({formatTime(session.timer || 0)})
                 </Button>
               </div>
               
