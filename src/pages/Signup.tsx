@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
@@ -53,23 +52,9 @@ const Signup = () => {
       return;
     }
     
-    console.log("Profile form submitted:", values);
-    console.log("With account data:", accountData);
-    
     setIsLoading(true);
     
     try {
-      console.log("Submitting to Supabase with:", {
-        email: accountData.email,
-        password: accountData.password,
-        userData: {
-          username: accountData.username,
-          fitnessGoal: values.fitnessGoal,
-          experienceLevel: values.experienceLevel,
-          preferredWorkoutType: values.preferredWorkoutType,
-        }
-      });
-
       const { data, error } = await supabase.auth.signUp({
         email: accountData.email,
         password: accountData.password,
@@ -80,6 +65,7 @@ const Signup = () => {
             experienceLevel: values.experienceLevel,
             preferredWorkoutType: values.preferredWorkoutType,
           },
+          emailRedirectTo: `${window.location.origin}/login`,
         },
       });
 
