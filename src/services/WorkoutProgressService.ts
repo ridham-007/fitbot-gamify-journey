@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { WorkoutExercise } from './WorkoutService';
 
@@ -37,6 +38,17 @@ export interface WorkoutSession {
   workout_date?: string;
   exercise_state?: string;
   is_completed?: boolean;
+}
+
+// Exercise demonstration data
+export interface ExerciseDemo {
+  id: string;
+  exercise_name: string;
+  description?: string;
+  animation_url: string;
+  form_tips?: string[];
+  muscle_group: string;
+  difficulty_level: string;
 }
 
 export const WorkoutProgressService = {
@@ -164,6 +176,30 @@ export const WorkoutProgressService = {
       };
     } catch (error) {
       console.error('Exception when fetching active session:', error);
+      return null;
+    }
+  },
+
+  async getExerciseDemo(exerciseName: string): Promise<ExerciseDemo | null> {
+    try {
+      // Normalize the exercise name for search
+      const normalizedName = exerciseName.toLowerCase().trim();
+      
+      const { data, error } = await supabase
+        .from('exercise_demonstrations')
+        .select('*')
+        .ilike('exercise_name', `%${normalizedName}%`)
+        .limit(1)
+        .maybeSingle();
+      
+      if (error || !data) {
+        console.error('Error fetching exercise demo:', error);
+        return null;
+      }
+      
+      return data as ExerciseDemo;
+    } catch (error) {
+      console.error('Exception when fetching exercise demo:', error);
       return null;
     }
   }
