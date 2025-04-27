@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useUser } from '@/contexts/UserContext';
 import { useToast } from '@/components/ui/use-toast';
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 type NavbarProps = {
   isLoggedIn?: boolean;
@@ -27,10 +28,8 @@ const Navbar = ({ isLoggedIn: isLoggedInProp }: NavbarProps) => {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   
-  // Use context value if prop not provided
   const isLoggedIn = isLoggedInProp !== undefined ? isLoggedInProp : isAuthLoggedIn;
 
-  // Redirect to dashboard if logged in and on homepage, login, or signup pages
   useEffect(() => {
     const publicOnlyPaths = ['/', '/login', '/signup'];
     if (isLoggedIn && publicOnlyPaths.includes(location.pathname)) {
@@ -64,7 +63,7 @@ const Navbar = ({ isLoggedIn: isLoggedInProp }: NavbarProps) => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-white dark:bg-fitDark-900 shadow-sm">
+    <nav className="sticky top-0 z-50 bg-background border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
@@ -94,6 +93,7 @@ const Navbar = ({ isLoggedIn: isLoggedInProp }: NavbarProps) => {
                 <Link to="/settings" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
                   Settings
                 </Link>
+                <ThemeToggle />
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -115,6 +115,7 @@ const Navbar = ({ isLoggedIn: isLoggedInProp }: NavbarProps) => {
                 <Link to="/about" className="text-gray-700 dark:text-gray-300 hover:text-fitPurple-600 dark:hover:text-fitPurple-400 px-3 py-2 rounded-md text-sm font-medium">
                   About
                 </Link>
+                <ThemeToggle />
                 <div className="flex items-center ml-4 space-x-2">
                   <Link to="/login">
                     <Button variant="outline" size="sm">Login</Button>
@@ -204,9 +205,10 @@ const Navbar = ({ isLoggedIn: isLoggedInProp }: NavbarProps) => {
                 <Settings className="mr-2 h-5 w-5" />
                 Settings
               </Link>
-              <div className="pt-4">
+              <div className="pt-4 flex items-center justify-between px-3">
+                <ThemeToggle />
                 <Button 
-                  className="w-full flex items-center justify-center" 
+                  className="w-32 flex items-center justify-center" 
                   variant="outline"
                   onClick={handleLogout}
                 >
@@ -238,17 +240,20 @@ const Navbar = ({ isLoggedIn: isLoggedInProp }: NavbarProps) => {
               >
                 About
               </Link>
-              <div className="pt-4 flex flex-col space-y-2">
-                <Link to="/login" onClick={() => setIsOpen(false)}>
-                  <Button className="w-full" variant="outline">
-                    Login
-                  </Button>
-                </Link>
-                <Link to="/signup" onClick={() => setIsOpen(false)}>
-                  <Button className="w-full">
-                    Sign Up
-                  </Button>
-                </Link>
+              <div className="pt-4 flex items-center justify-between px-3">
+                <ThemeToggle />
+                <div className="flex space-x-2">
+                  <Link to="/login" onClick={() => setIsOpen(false)}>
+                    <Button className="w-full" variant="outline">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link to="/signup" onClick={() => setIsOpen(false)}>
+                    <Button className="w-full">
+                      Sign Up
+                    </Button>
+                  </Link>
+                </div>
               </div>
             </>
           )}
