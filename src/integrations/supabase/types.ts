@@ -35,24 +35,30 @@ export type Database = {
       }
       ai_trainer_chats: {
         Row: {
+          category: string | null
           created_at: string
           id: string
           is_user: boolean
           message: string
+          session_id: string
           user_id: string
         }
         Insert: {
+          category?: string | null
           created_at?: string
           id?: string
           is_user?: boolean
           message: string
+          session_id?: string
           user_id: string
         }
         Update: {
+          category?: string | null
           created_at?: string
           id?: string
           is_user?: boolean
           message?: string
+          session_id?: string
           user_id?: string
         }
         Relationships: []

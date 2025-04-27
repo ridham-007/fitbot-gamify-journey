@@ -19,6 +19,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import ChatMessage from '@/components/trainer/ChatMessage';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Database } from '@/integrations/supabase/types';
+
+// Explicitly define the Session type to match the database structure
+type Session = {
+  session_id: string;
+  created_at: string;
+};
 
 type Message = {
   id: string;
@@ -26,6 +33,7 @@ type Message = {
   content: string;
   timestamp: Date;
   isTyping?: boolean;
+  category?: string;
 };
 
 type Category = 'weightloss' | 'muscle-gain' | 'general-fitness' | 'flexibility';
@@ -83,7 +91,7 @@ const Trainer = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [exerciseVideos, setExerciseVideos] = useState([]);
+  const [exerciseVideos, setExerciseVideos] = useState<Database['public']['Tables']['exercise_videos']['Row'][]>([]);
   const [showSidebar, setShowSidebar] = useState(false);
   const [sidebarContent, setSidebarContent] = useState<'history' | 'videos'>('videos');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -132,10 +140,13 @@ const Trainer = () => {
       if (error) throw error;
 
       if (data) {
-        // Create a unique list of sessions
+        // Create a unique list of sessions, explicitly casting to Session type
         const uniqueSessions = [...new Map(data.map(item => 
-          [item.session_id, item]
-        )).values()];
+          [item.session_id, { 
+            session_id: item.session_id, 
+            created_at: item.created_at 
+          }]
+        )).values()] as Session[];
         
         setPreviousSessions(uniqueSessions);
       }
@@ -155,17 +166,18 @@ const Trainer = () => {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        // Extract category from the first message
-        const sessionCategory = data[0].category as Category || null;
+        // Extract category from the first message, with type safety
+        const sessionCategory = data[0].category as Category | null;
         setCurrentCategory(sessionCategory);
         setSessionId(sessionId);
 
-        // Convert data to messages format
-        const sessionMessages = data.map(msg => ({
+        // Convert data to messages format with explicit typing
+        const sessionMessages: Message[] = data.map(msg => ({
           id: msg.id,
-          type: msg.is_user ? 'user' : 'ai' as 'user' | 'ai',
+          type: msg.is_user ? 'user' : 'ai',
           content: msg.message,
           timestamp: new Date(msg.created_at),
+          category: msg.category || undefined
         }));
 
         setMessages(sessionMessages);
