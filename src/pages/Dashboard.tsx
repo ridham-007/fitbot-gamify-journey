@@ -16,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ExerciseDemo from '@/components/dashboard/ExerciseDemo';
 import WorkoutProgress from '@/components/dashboard/WorkoutProgress';
 import WorkoutService from '@/services/WorkoutService';
+import SimpleWorkoutProgress from '@/components/dashboard/SimpleWorkoutProgress';
 
 const defaultWorkout = {
   title: "Full Body HIIT",
@@ -117,21 +118,21 @@ const Dashboard = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [totalWorkoutTime, setTotalWorkoutTime] = useState(0);
   const intervalRef = useRef<number | null>(null);
-  
+
   const { data: userStats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['userStats', user?.id],
     queryFn: () => fetchUserStats(user?.id),
     enabled: !!user?.id,
     staleTime: 5 * 60 * 1000,
   });
-  
+
   const { data: achievements = [], isLoading: achievementsLoading } = useQuery({
     queryKey: ['userAchievements', user?.id],
     queryFn: () => fetchUserAchievements(user?.id),
     enabled: !!user?.id,
     staleTime: 10 * 60 * 1000,
   });
-  
+
   const progressMutation = useMutation({
     mutationFn: async ({ userId, workout, progress }: { 
       userId: string; 
@@ -217,18 +218,21 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    const progressSaveInterval = setInterval(() => {
-      if (isWorkoutStarted && !isPaused && user?.id && totalWorkoutTime > 0) {
-        progressMutation.mutate({
-          userId: user.id,
-          workout: mockWorkout,
-          progress: totalWorkoutTime
+    const progressInterval = setInterval(() => {
+      if (isWorkoutStarted && !isPaused && user?.id) {
+        WorkoutProgressService.saveProgress(user.id, {
+          workout_type: mockWorkout.title,
+          current_exercise_index: currentExerciseIndex,
+          timer,
+          is_resting: isResting,
+          total_time: totalWorkoutTime,
+          completed_exercises: mockWorkout.exercises.filter(ex => ex.completed).length
         });
       }
-    }, 60000);
-    
-    return () => clearInterval(progressSaveInterval);
-  }, [isWorkoutStarted, isPaused, user?.id, totalWorkoutTime, mockWorkout, progressMutation]);
+    }, 5000);
+
+    return () => clearInterval(progressInterval);
+  }, [isWorkoutStarted, isPaused, user?.id, currentExerciseIndex, timer, isResting, totalWorkoutTime, mockWorkout]);
 
   useEffect(() => {
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
@@ -533,31 +537,14 @@ const Dashboard = () => {
                   </div>
 
                   {isWorkoutStarted && (
-                    <>
-                      <WorkoutProgress
-                        currentExercise={currentExerciseIndex + 1}
-                        totalExercises={mockWorkout.exercises.length}
-                        exerciseName={mockWorkout.exercises[currentExerciseIndex].name}
-                        timeRemaining={isResting 
-                          ? mockWorkout.exercises[currentExerciseIndex].rest - timer 
-                          : mockWorkout.exercises[currentExerciseIndex].duration - timer}
-                        totalTime={mockWorkout.duration * 60}
-                        isPaused={isPaused}
-                      />
-                      
-                      {currentExerciseDemo && (
-                        <div className="mt-6">
-                          <ExerciseDemo
-                            exerciseName={currentExerciseDemo.exercise_name}
-                            animationUrl={currentExerciseDemo.animation_url}
-                            description={currentExerciseDemo.description}
-                            muscleGroup={currentExerciseDemo.muscle_group}
-                            difficultyLevel={currentExerciseDemo.difficulty_level}
-                            formTips={currentExerciseDemo.form_tips}
-                          />
-                        </div>
-                      )}
-                    </>
+                    <SimpleWorkoutProgress
+                      currentExercise={currentExerciseIndex + 1}
+                      totalExercises={mockWorkout.exercises.length}
+                      exerciseName={mockWorkout.exercises[currentExerciseIndex].name}
+                      timeElapsed={totalWorkoutTime}
+                      totalTime={mockWorkout.duration * 60}
+                      isPaused={isPaused}
+                    />
                   )}
 
                   <div className="space-y-3 mt-6">

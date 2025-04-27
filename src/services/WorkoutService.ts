@@ -1,6 +1,4 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { PostgrestSingleResponse } from '@supabase/supabase-js';
 
 interface WorkoutExercise {
   name: string;
@@ -37,24 +35,12 @@ interface WorkoutProgress {
   currentTime: number;
 }
 
-interface UserWorkoutProgress {
-  id: string;
-  user_id: string;
-  workout_type: string;
-  duration: number;
-  calories: number | null;
-  intensity: string | null;
-  satisfaction_rating: number | null;
-  workout_date: string;
-  created_at: string;
-}
-
 export const WorkoutService = {
   async getLastCompletedWorkout(userId: string): Promise<SavedWorkout | null> {
+    if (!userId) return null;
+    
     try {
-      // Use a type assertion to avoid deep type instantiation
       const today = new Date().toISOString().split('T')[0];
-
       const { data, error } = await supabase
         .from('workouts')
         .select('*')
@@ -63,24 +49,16 @@ export const WorkoutService = {
         .lt('completed_at', `${today}T23:59:59`)
         .order('completed_at', { ascending: false })
         .limit(1)
-        .maybeSingle() as PostgrestSingleResponse<SavedWorkout>;
+        .maybeSingle();
       
-      if (error) {
-        console.error('Error fetching last completed workout:', error);
-        return null;
-      }
+      if (error || !data) return null;
       
-      // Handle case where data might be null
-      if (!data) return null;
-      
-      // Ensure exercise_data is present (even if empty array)
-      if (!data.exercise_data) {
-        data.exercise_data = [];
-      }
-      
-      return data;
+      return {
+        ...data,
+        exercise_data: data.exercise_data || []
+      } as SavedWorkout;
     } catch (error) {
-      console.error('Exception when fetching last completed workout:', error);
+      console.error('Error fetching last completed workout:', error);
       return null;
     }
   },
@@ -170,73 +148,14 @@ export const WorkoutService = {
       return { success: false, error, data: [] };
     }
   },
-  
-  async pauseWorkout(userId: string, workout: WorkoutData, currentProgress: WorkoutProgress): Promise<{ success: boolean; error?: any; data?: any }> {
-    if (!userId) {
-      return { success: false, error: 'No user ID provided' };
-    }
-    
-    try {
-      const progressInfo = {
-        currentExerciseIndex: currentProgress.currentExerciseIndex,
-        timer: currentProgress.timer,
-        isResting: currentProgress.isResting,
-        completedExercises: currentProgress.completedExercises,
-        currentTime: currentProgress.currentTime,
-        timestamp: new Date().toISOString(),
-        workout: workout
-      };
-      
-      localStorage.setItem(`workout_state_${userId}`, JSON.stringify(progressInfo));
-      
-      const { data, error } = await supabase
-        .from('user_workout_progress')
-        .insert({
-          user_id: userId,
-          workout_type: workout.title,
-          duration: currentProgress.currentTime || 0,
-          calories: Math.round((currentProgress.currentTime / workout.duration) * workout.caloriesBurn),
-          intensity: workout.difficulty,
-          workout_date: new Date().toISOString().split('T')[0]
-        })
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('Error pausing workout:', error);
-        return { success: false, error };
-      }
-      
-      return { success: true, data };
-    } catch (error) {
-      console.error('Exception when pausing workout:', error);
-      return { success: false, error };
-    }
-  },
-  
+
   async resumeWorkout(userId: string): Promise<{ success: boolean; error?: any; data?: any }> {
     if (!userId) {
       return { success: false, error: 'No user ID provided' };
     }
     
     try {
-      const completedWorkout = await this.getLastCompletedWorkout(userId);
-      if (completedWorkout) {
-        return { success: false, error: 'Already completed workout today' };
-      }
-      
-      const savedState = localStorage.getItem(`workout_state_${userId}`);
-      if (savedState) {
-        const parsedState = JSON.parse(savedState);
-        const savedDate = new Date(parsedState.timestamp).toDateString();
-        const currentDate = new Date().toDateString();
-        
-        if (savedDate === currentDate) {
-          return { success: true, data: parsedState };
-        }
-      }
-      
-      const { data: progressData, error: progressError } = await supabase
+      const { data: progressData } = await supabase
         .from('user_workout_progress')
         .select('*')
         .eq('user_id', userId)
@@ -245,35 +164,16 @@ export const WorkoutService = {
         .limit(1)
         .maybeSingle();
       
-      if (progressError) {
-        console.error('Error fetching workout progress:', progressError);
-        return { success: false, error: progressError };
-      }
-      
       if (!progressData) {
         return { success: false, error: 'No workout in progress' };
       }
       
-      const savedWorkoutState = localStorage.getItem(`workout_state_${userId}`);
-      let workoutState = {};
-      
-      if (savedWorkoutState) {
-        try {
-          workoutState = JSON.parse(savedWorkoutState);
-        } catch (e) {
-          console.error('Error parsing saved workout state:', e);
-        }
-      }
-      
       return {
         success: true,
-        data: {
-          ...workoutState,
-          progress: progressData
-        }
+        data: progressData
       };
     } catch (error) {
-      console.error('Exception when resuming workout:', error);
+      console.error('Error resuming workout:', error);
       return { success: false, error };
     }
   }
