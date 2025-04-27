@@ -159,23 +159,26 @@ export const WorkoutProgressService = {
         console.error('Error parsing exercise state:', e);
       }
       
+      // Explicitly casting data to DatabaseWorkoutProgress to ensure TypeScript recognizes timer_position
+      const item = data as DatabaseWorkoutProgress;
+      
       return {
-        id: data.id,
-        user_id: data.user_id,
-        workout_type: data.workout_type,
-        current_exercise_index: data.current_exercise_index || 0,
-        timer: data.timer_position || 0,
-        is_resting: data.is_resting || false,
-        total_time: data.duration || 0,
+        id: item.id,
+        user_id: item.user_id,
+        workout_type: item.workout_type,
+        current_exercise_index: item.current_exercise_index || 0,
+        timer: item.timer_position || 0,
+        is_resting: item.is_resting || false,
+        total_time: item.duration || 0,
         completed_exercises: exercises.filter(ex => ex.completed).length,
-        created_at: data.created_at,
-        duration: data.duration,
-        calories: data.calories,
-        intensity: data.intensity,
-        workout_date: data.workout_date,
-        exercise_state: data.exercise_state,
-        is_completed: data.is_completed,
-        timer_position: data.timer_position
+        created_at: item.created_at,
+        duration: item.duration,
+        calories: item.calories,
+        intensity: item.intensity,
+        workout_date: item.workout_date,
+        exercise_state: item.exercise_state,
+        is_completed: item.is_completed,
+        timer_position: item.timer_position
       };
     } catch (error) {
       console.error('Exception when fetching active session:', error);
