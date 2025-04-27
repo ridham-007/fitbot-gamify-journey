@@ -22,7 +22,7 @@ interface SavedWorkout {
   workout_type: string;
   duration: number;
   calories_burned: number;
-  exercise_data: WorkoutExercise[] | any; // Fixed: Explicitly defined type
+  exercise_data: WorkoutExercise[];
   completed_at: string;
   user_id: string;
   notes?: string;
@@ -51,15 +51,20 @@ interface UserWorkoutProgress {
 export const WorkoutService = {
   async getLastCompletedWorkout(userId: string): Promise<SavedWorkout | null> {
     try {
-      // Explicitly define response type to prevent excessive type instantiation
-      const { data, error } = await supabase
+      // Use explicit type annotation for the response to prevent excessive type instantiation
+      interface WorkoutResponse {
+        data: SavedWorkout | null;
+        error: any;
+      }
+      
+      const { data, error }: WorkoutResponse = await supabase
         .from('workouts')
         .select('*')
         .eq('user_id', userId)
         .eq('completed_at::date', new Date().toISOString().split('T')[0])
         .order('completed_at', { ascending: false })
         .limit(1)
-        .maybeSingle(); // Changed from single() to maybeSingle() for safer behavior
+        .maybeSingle();
       
       if (error) {
         console.error('Error fetching last completed workout:', error);
