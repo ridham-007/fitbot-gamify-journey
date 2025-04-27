@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -21,7 +20,7 @@ import ChatMessage from '@/components/trainer/ChatMessage';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Database } from '@/integrations/supabase/types';
 
-// Explicitly define the Session type to match the database structure
+// Single definition of Session type to match the database structure
 type Session = {
   session_id: string;
   created_at: string;
@@ -44,11 +43,6 @@ type CategoryInfo = {
   description: string;
   icon: React.ReactNode;
   color: string;
-};
-
-type Session = {
-  session_id: string;
-  created_at: string;
 };
 
 const categories: Record<Category, CategoryInfo> = {
