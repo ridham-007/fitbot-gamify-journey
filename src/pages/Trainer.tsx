@@ -283,7 +283,7 @@ const Trainer = () => {
     setIsLoading(true);
     
     try {
-      const { data: responseData, error } = await supabase.functions.invoke('fitness-ai-chat', {
+      const { data, error } = await supabase.functions.invoke('fitness-ai-chat', {
         body: { 
           message: userText || "Let's begin", 
           userId,
@@ -295,24 +295,24 @@ const Trainer = () => {
       
       if (error) throw error;
       
-      if (!responseData) throw new Error("No data returned from AI trainer");
+      if (!data) throw new Error("No data returned from AI trainer");
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: responseData.reply || "Sorry, I couldn't generate a response. Please try again.",
+        content: data.reply || "Sorry, I couldn't generate a response. Please try again.",
         timestamp: new Date(),
         sessionId: sessionId || undefined
       };
       
       simulateTyping(aiMessage, () => {
         setIsLoading(false);
-        if (responseData.suggestedVideos && Array.isArray(responseData.suggestedVideos) && responseData.suggestedVideos.length > 0) {
-          console.log("Setting exercise videos:", responseData.suggestedVideos);
-          setExerciseVideos(responseData.suggestedVideos);
+        if (data.suggestedVideos && Array.isArray(data.suggestedVideos) && data.suggestedVideos.length > 0) {
+          console.log("Setting exercise videos:", data.suggestedVideos);
+          setExerciseVideos(data.suggestedVideos);
         }
-        if (responseData.previousSessions && Array.isArray(responseData.previousSessions)) {
-          setPreviousSessions(responseData.previousSessions);
+        if (data.previousSessions && Array.isArray(data.previousSessions)) {
+          setPreviousSessions(data.previousSessions);
         }
       });
       
@@ -326,7 +326,6 @@ const Trainer = () => {
       setIsLoading(false);
     }
 
-    // Save initial welcome message for new sessions
     if (isNewSession && sessionId) {
       const welcomeMessage = {
         id: Date.now().toString(),
@@ -346,19 +345,17 @@ const Trainer = () => {
       ]);
     }
 
-    // Save chat messages
     const { error: chatError } = await supabase
       .from('ai_trainer_chats')
       .insert([
         { user_id: userId, message: userText, is_user: true, category, session_id: sessionId },
-        { user_id: userId, message: responseData?.reply, is_user: false, category, session_id: sessionId }
+        { user_id: userId, message: data?.reply, is_user: false, category, session_id: sessionId }
       ]);
       
     if (chatError) {
       console.error("Error saving chat messages:", chatError);
     }
     
-    // Get previous session IDs for this user
     const { data: previousSessions, error: sessionsError } = await supabase
       .from('ai_trainer_chats')
       .select('session_id, created_at')
@@ -578,18 +575,28 @@ const Trainer = () => {
                   )}
                   
                   <AnimatePresence>
-                    {messages.map((message) => (
-                      <ChatMessage
-                        key={message.id}
-                        content={message.content}
-                        type={message.type}
-                        timestamp={message.timestamp}
-                        isTyping={message.isTyping}
-                        onToggleFullscreen={() => {}}
-                        isFullscreen={false}
-                        userAvatarUrl={message.type === 'user' ? supabase.auth.getUser().then(data => data.data.user?.user_metadata?.avatar_url) : undefined}
-                      />
-                    ))}
+                    {messages.map((message) => {
+                      const getAvatarUrl = async () => {
+                        if (message.type === 'user') {
+                          const { data } = await supabase.auth.getUser();
+                          return data.user?.user_metadata?.avatar_url;
+                        }
+                        return undefined;
+                      };
+                      
+                      return (
+                        <ChatMessage
+                          key={message.id}
+                          content={message.content}
+                          type={message.type}
+                          timestamp={message.timestamp}
+                          isTyping={message.isTyping}
+                          onToggleFullscreen={() => {}}
+                          isFullscreen={false}
+                          userAvatarUrl={message.type === 'user' ? undefined : undefined}
+                        />
+                      );
+                    })}
                   </AnimatePresence>
                   
                   {isLoading && !messages[messages.length - 1]?.isTyping && (
