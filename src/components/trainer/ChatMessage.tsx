@@ -50,15 +50,16 @@ const ChatMessage = ({
   };
 
   const bubbleClasses = cn(
-    "relative group max-w-[85%] p-4 shadow-lg transition-all duration-200",
+    "relative group max-w-[95%] p-4 shadow-lg transition-all duration-200", // Increased max-width to 95%
     type === 'user' 
       ? 'bg-gradient-to-r from-fitPurple-600 to-fitPurple-700 text-white rounded-t-2xl rounded-bl-2xl rounded-br-sm ml-auto hover:shadow-fitPurple-400/20'
       : 'bg-gradient-to-r from-white to-gray-50 dark:from-fitDark-800 dark:to-fitDark-700 rounded-t-2xl rounded-br-2xl rounded-bl-sm mr-auto hover:shadow-xl dark:shadow-fitDark-900/30',
     isFullscreen && 'max-w-3xl'
   );
 
-  const maxContentHeight = 500;
-  const contentTooLong = content.length > 500;
+  // Safely handle potentially undefined content
+  const safeContent = content || '';
+  const contentTooLong = safeContent.length > 500;
 
   return (
     <motion.div
@@ -85,7 +86,7 @@ const ChatMessage = ({
         </div>
       )}
 
-      <div className="flex flex-col max-w-[85%]">
+      <div className="flex flex-col max-w-[92%]"> {/* Increased max-width to 92% */}
         <Card className={bubbleClasses}>
           <div className="relative">
             {contentTooLong ? (
@@ -109,10 +110,10 @@ const ChatMessage = ({
                             "dark:[&>code]:bg-fitDark-700 dark:[&>code]:text-fitPurple-300"
                           )}
                         >
-                          {content}
+                          {safeContent}
                         </ReactMarkdown>
                       ) : (
-                        <p className="whitespace-pre-wrap">{content}</p>
+                        <p className="whitespace-pre-wrap">{safeContent}</p>
                       )}
                     </ScrollArea>
                   </AccordionContent>
@@ -133,10 +134,10 @@ const ChatMessage = ({
                       "dark:[&>code]:bg-fitDark-700 dark:[&>code]:text-fitPurple-300"
                     )}
                   >
-                    {content}
+                    {safeContent}
                   </ReactMarkdown>
                 ) : (
-                  <p className="whitespace-pre-wrap">{content}</p>
+                  <p className="whitespace-pre-wrap">{safeContent}</p>
                 )}
               </div>
             )}
@@ -172,7 +173,7 @@ const ChatMessage = ({
                 "text-xs",
                 type === 'user' ? 'text-fitPurple-200' : 'text-gray-500 dark:text-gray-400'
               )}>
-                {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {timestamp ? timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
               </span>
             </div>
             

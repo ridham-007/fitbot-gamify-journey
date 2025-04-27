@@ -69,7 +69,7 @@ const Index = () => {
               Train Smarter, Not Harder
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-              FitBot combines artificial intelligence with gamification to make your fitness journey more effective and fun.
+              BubblyFit AI combines artificial intelligence with gamification to make your fitness journey more effective and fun.
             </p>
           </div>
           
@@ -163,7 +163,7 @@ const Index = () => {
               Success Stories
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-              See how FitBot has helped people transform their fitness journey.
+              See how BubblyFit AI has helped people transform their fitness journey.
             </p>
           </div>
           
@@ -184,7 +184,7 @@ const Index = () => {
                 </div>
               </div>
               <p className="text-gray-600 dark:text-gray-300 italic">
-                "The gamification aspect of FitBot kept me motivated like nothing else. I've lost 15 pounds and gained so much energy!"
+                "The gamification aspect of BubblyFit AI kept me motivated like nothing else. I've lost 15 pounds and gained so much energy!"
               </p>
               <div className="mt-4 flex">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -259,7 +259,7 @@ const Index = () => {
             Ready to Transform Your Fitness Journey?
           </h2>
           <p className="text-lg text-fitPurple-100 max-w-3xl mx-auto mb-8">
-            Join FitBot today and experience the perfect blend of AI-powered workouts and gamification.
+            Join BubblyFit AI today and experience the perfect blend of AI-powered workouts and gamification.
           </p>
           <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
             <Link to="/signup">

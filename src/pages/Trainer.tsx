@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -101,7 +102,9 @@ const Trainer = () => {
   const [previousSessions, setPreviousSessions] = useState<Session[]>([]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (messagesEndRef.current) {
+      scrollToBottom();
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -124,7 +127,11 @@ const Trainer = () => {
         }]);
       }
 
-      fetchPreviousSessions(session.user.id);
+      try {
+        await fetchPreviousSessions(session.user.id);
+      } catch (error) {
+        console.error("Error fetching previous sessions:", error);
+      }
     };
     
     checkAuth();
@@ -172,16 +179,18 @@ const Trainer = () => {
       
       if (data && data.length > 0) {
         const videos = data
-          .map(item => item.exercise_videos)
-          .filter(Boolean) as Video[];
+          .filter(item => item.exercise_videos)
+          .map(item => item.exercise_videos) as Video[];
           
         console.log("Retrieved video recommendations:", videos);
-        setExerciseVideos(videos);
+        setExerciseVideos(videos.length > 0 ? videos : []);
       } else {
         console.log("No video recommendations found for session:", sessionId);
+        setExerciseVideos([]);
       }
     } catch (error) {
       console.error("Error fetching video recommendations:", error);
+      setExerciseVideos([]);
     }
   };
 
@@ -201,9 +210,9 @@ const Trainer = () => {
         setSessionId(sessionId);
 
         const sessionMessages: Message[] = chatsData.map(msg => ({
-          id: msg.id,
+          id: msg.id || String(Date.now()),
           type: msg.is_user ? 'user' : 'ai',
-          content: msg.message,
+          content: msg.message || '',
           timestamp: new Date(msg.created_at),
           category: msg.category || undefined
         }));
@@ -225,7 +234,9 @@ const Trainer = () => {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const handleCategorySelect = async (category: Category) => {
@@ -241,7 +252,16 @@ const Trainer = () => {
     };
     
     setMessages(prev => [...prev, welcomeMessage]);
-    await handleSend('', category, true);
+    try {
+      await handleSend('', category, true);
+    } catch (error) {
+      console.error("Error sending initial message:", error);
+      toast({
+        title: "Connection Error",
+        description: "Failed to start conversation with AI trainer.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSend = async (userText: string = input, category: Category | null = currentCategory, isNewSession: boolean = false) => {
@@ -273,20 +293,22 @@ const Trainer = () => {
       
       if (error) throw error;
       
+      if (!data) throw new Error("No data returned from AI trainer");
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: data.reply,
+        content: data.reply || "Sorry, I couldn't generate a response. Please try again.",
         timestamp: new Date(),
       };
       
       simulateTyping(aiMessage, () => {
         setIsLoading(false);
-        if (data.suggestedVideos && data.suggestedVideos.length > 0) {
+        if (data.suggestedVideos && Array.isArray(data.suggestedVideos) && data.suggestedVideos.length > 0) {
           console.log("Setting exercise videos:", data.suggestedVideos);
           setExerciseVideos(data.suggestedVideos);
         }
-        if (data.previousSessions) {
+        if (data.previousSessions && Array.isArray(data.previousSessions)) {
           setPreviousSessions(data.previousSessions);
         }
       });
@@ -323,11 +345,13 @@ const Trainer = () => {
         setMessages(prev => {
           const updatedMessages = [...prev];
           const lastMessageIndex = updatedMessages.length - 1;
-          updatedMessages[lastMessageIndex] = {
-            ...updatedMessages[lastMessageIndex],
-            content: fullContent.substring(0, i + 1),
-            isTyping: true,
-          };
+          if (lastMessageIndex >= 0) {
+            updatedMessages[lastMessageIndex] = {
+              ...updatedMessages[lastMessageIndex],
+              content: fullContent.substring(0, i + 1),
+              isTyping: true,
+            };
+          }
           return updatedMessages;
         });
         i++;
@@ -340,10 +364,12 @@ const Trainer = () => {
           setMessages(prev => {
             const updatedMessages = [...prev];
             const lastMessageIndex = updatedMessages.length - 1;
-            updatedMessages[lastMessageIndex] = {
-              ...updatedMessages[lastMessageIndex],
-              isTyping: false,
-            };
+            if (lastMessageIndex >= 0) {
+              updatedMessages[lastMessageIndex] = {
+                ...updatedMessages[lastMessageIndex],
+                isTyping: false,
+              };
+            }
             return updatedMessages;
           });
           callback();
@@ -393,7 +419,7 @@ const Trainer = () => {
     <MainLayout isLoggedIn={true}>
       <div className="flex flex-col h-[calc(100vh-4rem)]">
         <div className="bg-gradient-to-r from-fitPurple-600 to-fitPurple-700 text-white py-4 shadow-lg">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
             <div className="flex items-center">
               <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mr-3 shadow-inner shadow-fitPurple-800/20">
                 <motion.div
@@ -413,7 +439,7 @@ const Trainer = () => {
               <div>
                 <h1 className="text-2xl font-bold">AI Fitness Trainer</h1>
                 <p className="text-sm text-fitPurple-100">
-                  {currentCategory 
+                  {currentCategory && categories[currentCategory] 
                     ? `Focus: ${categories[currentCategory].title}` 
                     : 'Your personal coach for fitness goals'}
                 </p>
@@ -596,7 +622,7 @@ const Trainer = () => {
                   <div className="p-4">
                     {sidebarContent === 'videos' ? (
                       <div className="space-y-4">
-                        {exerciseVideos.length > 0 ? (
+                        {exerciseVideos && exerciseVideos.length > 0 ? (
                           exerciseVideos.map((video) => (
                             <ExerciseVideo
                               key={video.id}
@@ -626,7 +652,7 @@ const Trainer = () => {
                           Start New Conversation
                         </Button>
                         
-                        {previousSessions.length > 0 ? (
+                        {previousSessions && previousSessions.length > 0 ? (
                           previousSessions.map((session) => (
                             <Button
                               key={session.session_id}
@@ -638,7 +664,7 @@ const Trainer = () => {
                               <div className="flex items-center w-full mb-1">
                                 <MessageSquare className="h-4 w-4 mr-2 text-fitPurple-500" />
                                 <span className="text-sm font-medium">
-                                  {new Date(session.created_at).toLocaleDateString(undefined, { 
+                                  {session.created_at && new Date(session.created_at).toLocaleDateString(undefined, { 
                                     month: 'short', 
                                     day: 'numeric',
                                     year: 'numeric'
@@ -647,7 +673,7 @@ const Trainer = () => {
                               </div>
                               <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
                                 <span>
-                                  {new Date(session.created_at).toLocaleTimeString(undefined, {
+                                  {session.created_at && new Date(session.created_at).toLocaleTimeString(undefined, {
                                     hour: '2-digit',
                                     minute: '2-digit'
                                   })}
