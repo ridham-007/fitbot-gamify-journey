@@ -583,9 +583,11 @@ const Trainer = () => {
                         isTyping={message.isTyping}
                         onToggleFullscreen={() => {}}
                         isFullscreen={false}
+                        userAvatarUrl={message.type === 'user' ? supabase.auth.currentUser?.user_metadata?.avatar_url : undefined}
                       />
                     ))}
                   </AnimatePresence>
+                  
                   {isLoading && !messages[messages.length - 1]?.isTyping && (
                     <div className="flex justify-start">
                       <div className="flex space-x-2 items-center px-4 py-3 rounded-lg bg-white dark:bg-fitDark-800 shadow border border-gray-100 dark:border-fitDark-700 animate-pulse">
@@ -689,62 +691,60 @@ const Trainer = () => {
                         )}
                       </div>
                     ) : (
-                      
-      <div className="space-y-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={startNewChat}
-          className="w-full flex items-center justify-start hover:bg-fitPurple-50 dark:hover:bg-fitPurple-900/10"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Start New Conversation
-        </Button>
-        
-        {previousSessions && previousSessions.length > 0 ? (
-          previousSessions.map((session) => {
-            const firstMessage = messages.find(
-              msg => msg.type === 'user' && msg.sessionId === session.session_id
-            )?.content || 'New Chat';
-            
-            return (
-              <Button
-                key={session.session_id}
-                variant="ghost"
-                size="sm"
-                onClick={() => loadPreviousSession(session.session_id)}
-                className="w-full group flex flex-col items-start justify-start p-3 hover:bg-fitPurple-50 dark:hover:bg-fitPurple-900/10 rounded-lg transition-all"
-              >
-                <div className="flex items-center w-full mb-1">
-                  <MessageSquare className="h-4 w-4 mr-2 text-fitPurple-500" />
-                  <span className="text-sm font-medium truncate">
-                    {firstMessage.length > 30 
-                      ? `${firstMessage.substring(0, 30)}...` 
-                      : firstMessage}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
-                  <span>
-                    {session.created_at && new Date(session.created_at).toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </span>
-                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    View Chat →
-                  </span>
-                </div>
-              </Button>
-            );
-          })
-        ) : (
-          <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-            No previous conversations found.
-          </p>
-        )}
-      </div>
-    
+                      <div className="space-y-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={startNewChat}
+                          className="w-full flex items-center justify-start hover:bg-fitPurple-50 dark:hover:bg-fitPurple-900/10"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Start New Conversation
+                        </Button>
+                        
+                        {previousSessions && previousSessions.length > 0 ? (
+                          previousSessions.map((session) => {
+                            const firstMessage = messages.find(
+                              msg => msg.type === 'user' && msg.sessionId === session.session_id
+                            )?.content || 'New Chat';
+                            
+                            return (
+                              <Button
+                                key={session.session_id}
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => loadPreviousSession(session.session_id)}
+                                className="w-full group flex flex-col items-start justify-start p-3 hover:bg-fitPurple-50 dark:hover:bg-fitPurple-900/10 rounded-lg transition-all"
+                              >
+                                <div className="flex items-center w-full mb-1">
+                                  <MessageSquare className="h-4 w-4 mr-2 text-fitPurple-500" />
+                                  <span className="text-sm font-medium truncate">
+                                    {firstMessage.length > 30 
+                                      ? `${firstMessage.substring(0, 30)}...` 
+                                      : firstMessage}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
+                                  <span>
+                                    {session.created_at && new Date(session.created_at).toLocaleDateString(undefined, {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
+                                  </span>
+                                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                    View Chat →
+                                  </span>
+                                </div>
+                              </Button>
+                            );
+                          })
+                        ) : (
+                          <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                            No previous conversations found.
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </ScrollArea>
@@ -753,46 +753,7 @@ const Trainer = () => {
           </div>
         </div>
       </div>
-    
-      
-      
-        
-          
-            
-              
-                
-                  
-                    
-                      
-                    
-                    
-                      
-                        {message.content}
-                        
-                      
-                    
-                  
-                
-              
-            
-          
-        
-      
-      
-        {messages.map((message) => (
-          <ChatMessage
-            key={message.id}
-            content={message.content}
-            type={message.type}
-            timestamp={message.timestamp}
-            isTyping={message.isTyping}
-            onToggleFullscreen={() => {}}
-            isFullscreen={false}
-            userAvatarUrl={supabase.auth.currentUser?.user_metadata?.avatar_url}
-          />
-        ))}
-      
-    
+    </MainLayout>
   );
 };
 
