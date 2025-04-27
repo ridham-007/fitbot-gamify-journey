@@ -282,6 +282,8 @@ const Trainer = () => {
     setInput('');
     setIsLoading(true);
     
+    let aiResponse: any = null;
+    
     try {
       const { data, error } = await supabase.functions.invoke('fitness-ai-chat', {
         body: { 
@@ -296,6 +298,8 @@ const Trainer = () => {
       if (error) throw error;
       
       if (!data) throw new Error("No data returned from AI trainer");
+      
+      aiResponse = data;
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -349,7 +353,7 @@ const Trainer = () => {
       .from('ai_trainer_chats')
       .insert([
         { user_id: userId, message: userText, is_user: true, category, session_id: sessionId },
-        { user_id: userId, message: data?.reply, is_user: false, category, session_id: sessionId }
+        { user_id: userId, message: aiResponse?.reply, is_user: false, category, session_id: sessionId }
       ]);
       
     if (chatError) {
