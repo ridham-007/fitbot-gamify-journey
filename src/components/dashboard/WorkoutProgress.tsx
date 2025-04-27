@@ -35,54 +35,55 @@ const WorkoutProgress = ({
   const timeProgressPercentage = (timeRemaining / totalTime) * 100;
 
   return (
-    <Card>
+    <Card className="border-2 border-gray-200 dark:border-gray-800">
       <CardHeader>
-        <CardTitle className="text-xl font-bold flex items-center justify-between">
-          <span>Workout Progress</span>
-          {isPaused && (
-            <span className="text-sm flex items-center gap-1 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 px-2 py-1 rounded-md">
-              <AlertCircle className="h-4 w-4" /> Paused
-            </span>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            Exercise {currentExercise} of {totalExercises}
-          </span>
+          <CardTitle className="text-xl font-bold">Current Exercise</CardTitle>
           <div className="flex items-center gap-2">
-            <Timer className={cn("h-4 w-4", isPaused ? "text-amber-500" : "text-primary")} />
-            <span className="text-sm font-medium">{formatTime(timeRemaining)}</span>
+            {isPaused ? (
+              <span className="text-sm flex items-center gap-1 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 px-2 py-1 rounded-md">
+                <AlertCircle className="h-4 w-4" /> Paused
+              </span>
+            ) : (
+              <span className="text-sm flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded-md">
+                <Timer className="h-4 w-4" /> In Progress
+              </span>
+            )}
           </div>
         </div>
-        
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Progress</span>
-            <span>{Math.round(progressPercentage)}%</span>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Overall Progress</span>
+            <span className="font-medium">{Math.round(progressPercentage)}%</span>
           </div>
           <Progress value={progressPercentage} className="h-2" />
-        </div>
-        
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Current Exercise Time</span>
-            <span>{100 - Math.round(timeProgressPercentage)}%</span>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Exercise {currentExercise} of {totalExercises}</span>
+            <span>{totalExercises - currentExercise} remaining</span>
           </div>
-          <Progress value={100 - timeProgressPercentage} className="h-1.5 bg-gray-100 dark:bg-gray-800" />
         </div>
-        
-        <div className="bg-muted p-4 rounded-lg">
-          <div className="flex items-start gap-3">
-            <div className="bg-primary/20 rounded-full p-1">
-              <Check className="h-4 w-4 text-primary" />
+
+        <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="bg-primary/20 rounded-full p-1.5">
+                <Timer className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-medium">{exerciseName}</h3>
+                <p className="text-sm text-muted-foreground">Current Exercise</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-medium">{exerciseName}</h3>
-              <p className="text-sm text-muted-foreground">Current Exercise</p>
+            <div className="text-2xl font-bold tabular-nums">
+              {formatTime(timeRemaining)}
             </div>
           </div>
+          <Progress 
+            value={timeProgressPercentage} 
+            className="h-1.5"
+          />
         </div>
       </CardContent>
     </Card>

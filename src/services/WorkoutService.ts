@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 interface WorkoutExercise {
@@ -28,7 +27,14 @@ interface SavedWorkout {
   notes?: string;
 }
 
-// Define the user_workout_progress table structure to match the database
+interface WorkoutProgress {
+  currentExerciseIndex: number;
+  timer: number;
+  isResting: boolean;
+  completedExercises: WorkoutExercise[];
+  currentTime: number;
+}
+
 interface UserWorkoutProgress {
   id: string;
   user_id: string;
@@ -42,13 +48,35 @@ interface UserWorkoutProgress {
 }
 
 export const WorkoutService = {
+  async getLastCompletedWorkout(userId: string): Promise<SavedWorkout | null> {
+    try {
+      const { data, error } = await supabase
+        .from('workouts')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('completed_at::date', new Date().toISOString().split('T')[0])
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching last completed workout:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Exception when fetching last completed workout:', error);
+      return null;
+    }
+  },
+
   async saveWorkoutProgress(userId: string, workout: WorkoutData, progress: number): Promise<{ success: boolean; error?: any; data?: any }> {
     if (!userId) {
       return { success: false, error: 'No user ID provided' };
     }
     
     try {
-      // Save to user workout progress
       const { data: progressData, error: progressError } = await supabase
         .from('user_workout_progress')
         .insert({
@@ -79,7 +107,6 @@ export const WorkoutService = {
     }
     
     try {
-      // Save completed workout
       const { data: workoutData, error: workoutError } = await supabase
         .from('workouts')
         .insert({
@@ -122,7 +149,6 @@ export const WorkoutService = {
         return { success: false, error, data: [] };
       }
       
-      // Ensure we return data conforming to SavedWorkout interface
       const typedData = data as SavedWorkout[];
       return { success: true, data: typedData || [] };
     } catch (error) {
@@ -131,27 +157,23 @@ export const WorkoutService = {
     }
   },
   
-  async pauseWorkout(userId: string, workout: WorkoutData, currentProgress: any): Promise<{ success: boolean; error?: any; data?: any }> {
+  async pauseWorkout(userId: string, workout: WorkoutData, currentProgress: WorkoutProgress): Promise<{ success: boolean; error?: any; data?: any }> {
     if (!userId) {
       return { success: false, error: 'No user ID provided' };
     }
     
     try {
-      // Save the current workout state to local storage as a backup
-      localStorage.setItem(`workout_${userId}`, JSON.stringify({
-        workout,
-        currentProgress,
-        timestamp: new Date().toISOString()
-      }));
-      
-      // Also save to Supabase for persistence across devices
       const progressInfo = {
         currentExerciseIndex: currentProgress.currentExerciseIndex,
         timer: currentProgress.timer,
         isResting: currentProgress.isResting,
         completedExercises: currentProgress.completedExercises,
-        status: 'paused'
+        currentTime: currentProgress.currentTime,
+        timestamp: new Date().toISOString(),
+        workout: workout
       };
+      
+      localStorage.setItem(`workout_state_${userId}`, JSON.stringify(progressInfo));
       
       const { data, error } = await supabase
         .from('user_workout_progress')
@@ -161,9 +183,7 @@ export const WorkoutService = {
           duration: currentProgress.currentTime || 0,
           calories: Math.round((currentProgress.currentTime / workout.duration) * workout.caloriesBurn),
           intensity: workout.difficulty,
-          satisfaction_rating: null,
-          // Store progress info in the satisfaction_rating field as a workaround
-          // since there's no 'notes' field in user_workout_progress
+          workout_date: new Date().toISOString().split('T')[0]
         })
         .select()
         .single();
@@ -172,9 +192,6 @@ export const WorkoutService = {
         console.error('Error pausing workout:', error);
         return { success: false, error };
       }
-      
-      // Store the progress info in localStorage since we can't use notes field
-      localStorage.setItem(`workout_state_${userId}`, JSON.stringify(progressInfo));
       
       return { success: true, data };
     } catch (error) {
@@ -189,81 +206,56 @@ export const WorkoutService = {
     }
     
     try {
-      // First try to get from local storage
-      const localData = localStorage.getItem(`workout_${userId}`);
-      const workoutState = localStorage.getItem(`workout_state_${userId}`);
+      const completedWorkout = await this.getLastCompletedWorkout(userId);
+      if (completedWorkout) {
+        return { success: false, error: 'Already completed workout today' };
+      }
       
-      if (localData) {
-        const parsedData = JSON.parse(localData);
-        
-        // Check if the saved workout is from today
-        const savedDate = new Date(parsedData.timestamp).toDateString();
+      const savedState = localStorage.getItem(`workout_state_${userId}`);
+      if (savedState) {
+        const parsedState = JSON.parse(savedState);
+        const savedDate = new Date(parsedState.timestamp).toDateString();
         const currentDate = new Date().toDateString();
         
         if (savedDate === currentDate) {
-          // If we have workout state details in localStorage, merge them
-          if (workoutState) {
-            try {
-              const parsedState = JSON.parse(workoutState);
-              parsedData.currentProgress = {
-                ...parsedData.currentProgress,
-                ...parsedState
-              };
-            } catch (e) {
-              console.error('Error parsing workout state:', e);
-            }
-          }
-          
-          return { success: true, data: parsedData };
+          return { success: true, data: parsedState };
         }
       }
       
-      // If not in local storage or not from today, try to get from Supabase
-      const { data, error } = await supabase
+      const { data: progressData, error: progressError } = await supabase
         .from('user_workout_progress')
         .select('*')
         .eq('user_id', userId)
         .eq('workout_date', new Date().toISOString().split('T')[0])
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       
-      if (error) {
-        // No paused workout found
-        return { success: false, error };
+      if (progressError) {
+        console.error('Error fetching workout progress:', progressError);
+        return { success: false, error: progressError };
       }
       
-      // We need to get the workout state from localStorage since we couldn't store it in the notes field
+      if (!progressData) {
+        return { success: false, error: 'No workout in progress' };
+      }
+      
       const savedWorkoutState = localStorage.getItem(`workout_state_${userId}`);
-      let parsedWorkoutState = {};
+      let workoutState = {};
       
       if (savedWorkoutState) {
         try {
-          parsedWorkoutState = JSON.parse(savedWorkoutState);
+          workoutState = JSON.parse(savedWorkoutState);
         } catch (e) {
           console.error('Error parsing saved workout state:', e);
         }
       }
       
-      const progressData = data as UserWorkoutProgress;
-      
       return {
         success: true,
         data: {
-          workout: {
-            title: progressData.workout_type,
-            duration: progressData.duration,
-            difficulty: progressData.intensity || 'Intermediate',
-            caloriesBurn: progressData.calories || 0
-          },
-          currentProgress: {
-            currentExerciseIndex: (parsedWorkoutState as any).currentExerciseIndex || 0,
-            timer: (parsedWorkoutState as any).timer || 0,
-            isResting: (parsedWorkoutState as any).isResting || false,
-            completedExercises: (parsedWorkoutState as any).completedExercises || [],
-            totalTime: progressData.duration
-          },
-          timestamp: progressData.created_at
+          ...workoutState,
+          progress: progressData
         }
       };
     } catch (error) {
